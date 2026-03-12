@@ -8,7 +8,8 @@ const appState = {
   accounts: [],
   updateInterval: null,
   scannerStream: null,
-  searchQuery: ''
+  searchQuery: '',
+  sortBy: 'name-asc'
 };
 
 // Inicializar la extensión cuando se carga el popup
@@ -20,6 +21,7 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 async function initializeApp() {
   await loadAccounts();
   await loadTheme();
+  await loadSortPreference();
   renderAccounts();
   setupEventListeners();
   startAutoUpdate();
@@ -65,12 +67,15 @@ function renderAccounts() {
   }
 
   // Filtrar cuentas según búsqueda
-  const filteredAccounts = appState.accounts.filter(account => {
+  let filteredAccounts = appState.accounts.filter(account => {
     if (!appState.searchQuery) return true;
     const query = appState.searchQuery.toLowerCase();
     return account.name.toLowerCase().includes(query) ||
            account.platform.toLowerCase().includes(query);
   });
+
+  // Ordenar cuentas
+  filteredAccounts = sortAccounts(filteredAccounts, appState.sortBy);
 
   // Mostrar estado vacío si no hay cuentas
   if (appState.accounts.length === 0) {
@@ -256,6 +261,9 @@ function setupEventListeners() {
 
   // Theme toggle
   document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
+
+  // Sort
+  document.getElementById('sort-select')?.addEventListener('change', handleSort);
 }
 
 /**
@@ -512,6 +520,81 @@ function clearSearch() {
   searchInput.value = '';
   appState.searchQuery = '';
   document.getElementById('clear-search').classList.add('hidden');
+  renderAccounts();
+}
+
+/**
+ * Ordena las cuentas según el criterio especificado
+ * @param {Array} accounts - Array de cuentas a ordenar
+ * @param {string} sortBy - Criterio de ordenamiento
+ * @returns {Array} - Array ordenado
+ */
+function sortAccounts(accounts, sortBy) {
+  const sorted = [...accounts];
+
+  switch (sortBy) {
+    case 'name-asc':
+      return sorted.sort((a, b) => a.name.localeCompare(b.name));
+    case 'name-desc':
+      return sorted.sort((a, b) => b.name.localeCompare(a.name));
+    case 'platform-asc':
+      return sorted.sort((a, b) => a.platform.localeCompare(b.platform));
+    case 'platform-desc':
+      return sorted.sort((a, b) => b.platform.localeCompare(a.platform));
+    case 'date-asc':
+      return sorted.sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0);
+        const dateB = new Date(b.createdAt || 0);
+        return dateA - dateB;
+      });
+    case 'date-desc':
+      return sorted.sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0);
+        const dateB = new Date(b.createdAt || 0);
+        return dateB - dateA;
+      });
+    default:
+      return sorted;
+  }
+}
+
+/**
+ * Carga la preferencia de ordenamiento
+ */
+async function loadSortPreference() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['sortBy'], (result) => {
+      if (result.sortBy) {
+        appState.sortBy = result.sortBy;
+        const sortSelect = document.getElementById('sort-select');
+        if (sortSelect) {
+          sortSelect.value = result.sortBy;
+        }
+      }
+      resolve();
+    });
+  });
+}
+
+/**
+ * Guarda la preferencia de ordenamiento
+ * @param {string} sortBy - Criterio de ordenamiento
+ */
+async function saveSortPreference(sortBy) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ sortBy }, () => {
+      resolve();
+    });
+  });
+}
+
+/**
+ * Maneja el cambio de ordenamiento
+ * @param {Event} e - Evento de change
+ */
+async function handleSort(e) {
+  appState.sortBy = e.target.value;
+  await saveSortPreference(appState.sortBy);
   renderAccounts();
 }
 

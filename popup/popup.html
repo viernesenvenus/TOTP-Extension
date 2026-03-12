@@ -15,10 +15,21 @@
       </div>
     </header>
 
-    <!-- Search bar -->
+    <!-- Search and Sort bar -->
     <div id="search-container" class="search-container hidden" role="search">
       <input type="text" id="search-input" class="search-input" placeholder="🔍 Buscar cuentas..." aria-label="Buscar cuentas">
       <button id="clear-search" class="clear-search hidden" aria-label="Limpiar búsqueda">✕</button>
+      <div class="sort-controls">
+        <label for="sort-select" class="sort-label">Ordenar:</label>
+        <select id="sort-select" class="sort-select" aria-label="Ordenar cuentas">
+          <option value="name-asc">Nombre (A-Z)</option>
+          <option value="name-desc">Nombre (Z-A)</option>
+          <option value="platform-asc">Plataforma (A-Z)</option>
+          <option value="platform-desc">Plataforma (Z-A)</option>
+          <option value="date-desc">Más recientes</option>
+          <option value="date-asc">Más antiguas</option>
+        </select>
+      </div>
     </div>
 
     <!-- Lista de códigos TOTP -->
