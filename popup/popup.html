@@ -6,7 +6,7 @@
   <title>TOTP Authenticator</title>
   <link rel="stylesheet" href="popup.css">
 </head>
-<body>
+<body role="application" aria-label="Autenticador TOTP">
   <div class="container">
     <header>
       <div class="header-content">
@@ -16,20 +16,20 @@
     </header>
 
     <!-- Search bar -->
-    <div id="search-container" class="search-container hidden">
-      <input type="text" id="search-input" class="search-input" placeholder="🔍 Buscar cuentas...">
-      <button id="clear-search" class="clear-search hidden">✕</button>
+    <div id="search-container" class="search-container hidden" role="search">
+      <input type="text" id="search-input" class="search-input" placeholder="🔍 Buscar cuentas..." aria-label="Buscar cuentas">
+      <button id="clear-search" class="clear-search hidden" aria-label="Limpiar búsqueda">✕</button>
     </div>
 
     <!-- Lista de códigos TOTP -->
-    <div id="accounts-list" class="accounts-list">
+    <div id="accounts-list" class="accounts-list" role="list" aria-label="Lista de cuentas TOTP">
       <!-- Se llenará dinámicamente -->
     </div>
 
     <!-- Mensaje cuando no hay cuentas -->
-    <div id="empty-state" class="empty-state hidden">
+    <div id="empty-state" class="empty-state hidden" role="status" aria-live="polite">
       <p>📱 No tienes cuentas configuradas</p>
-      <button id="add-first-account" class="btn-primary">Agregar Primera Cuenta</button>
+      <button id="add-first-account" class="btn-primary" aria-label="Agregar tu primera cuenta TOTP">Agregar Primera Cuenta</button>
     </div>
 
     <!-- Botón para agregar nueva cuenta -->
@@ -43,23 +43,23 @@
     </div>
 
     <!-- Modal para agregar cuenta -->
-    <div id="add-modal" class="modal hidden">
+    <div id="add-modal" class="modal hidden" role="dialog" aria-labelledby="modal-title" aria-modal="true">
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Agregar Nueva Cuenta</h2>
-          <button id="close-modal" class="close-btn">&times;</button>
+          <h2 id="modal-title">Agregar Nueva Cuenta</h2>
+          <button id="close-modal" class="close-btn" aria-label="Cerrar modal">&times;</button>
         </div>
 
         <div class="modal-body">
           <!-- Tabs -->
-          <div class="tabs">
-            <button class="tab-btn active" data-tab="manual">✍️ Manual</button>
-            <button class="tab-btn" data-tab="qr">📷 Escanear QR</button>
+          <div class="tabs" role="tablist" aria-label="Métodos de agregar cuenta">
+            <button class="tab-btn active" data-tab="manual" role="tab" aria-selected="true" aria-controls="manual-tab" id="tab-manual">✍️ Manual</button>
+            <button class="tab-btn" data-tab="qr" role="tab" aria-selected="false" aria-controls="qr-tab" id="tab-qr">📷 Escanear QR</button>
           </div>
 
           <!-- Contenido Tab Manual -->
-          <div id="manual-tab" class="tab-content active">
-            <form id="manual-form">
+          <div id="manual-tab" class="tab-content active" role="tabpanel" aria-labelledby="tab-manual">
+            <form id="manual-form" aria-label="Formulario de ingreso manual">
               <div class="form-group">
                 <label for="account-name">Nombre de la cuenta:</label>
                 <input type="text" id="account-name" placeholder="Ej: Google, GitHub, AWS" required>
@@ -109,8 +109,8 @@
           </div>
 
           <!-- Contenido Tab QR -->
-          <div id="qr-tab" class="tab-content">
-            <div class="qr-scanner">
+          <div id="qr-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-qr">
+            <div class="qr-scanner" aria-label="Escáner de códigos QR">
               <video id="qr-video" class="qr-video"></video>
               <canvas id="qr-canvas" class="qr-canvas hidden"></canvas>
               <div id="qr-instructions" class="qr-instructions">

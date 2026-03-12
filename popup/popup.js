@@ -104,23 +104,23 @@ function renderAccounts() {
     const isWarning = timeRemaining <= 10;
 
     return `
-      <div class="account-card" data-index="${realIndex}">
+      <div class="account-card" data-index="${realIndex}" role="listitem" tabindex="0" aria-label="Cuenta ${escapeHtml(account.name)} en ${escapeHtml(account.platform)}">
         <div class="account-header">
           <div class="account-info">
             <h3>${escapeHtml(account.name)}</h3>
             <p>${escapeHtml(account.platform)}</p>
           </div>
-          <button class="account-delete" data-index="${realIndex}" title="Eliminar cuenta">
+          <button class="account-delete" data-index="${realIndex}" title="Eliminar cuenta" aria-label="Eliminar cuenta ${escapeHtml(account.name)}">
             🗑️
           </button>
         </div>
         <div class="code-container">
-          <div class="code-display">${formatCode(code)}</div>
-          <button class="copy-btn" data-index="${realIndex}">
+          <div class="code-display" aria-label="Código TOTP: ${code.replace(/\s/g, '')}">${formatCode(code)}</div>
+          <button class="copy-btn" data-index="${realIndex}" aria-label="Copiar código de ${escapeHtml(account.name)}">
             Copiar
           </button>
         </div>
-        <div class="timer-bar-container">
+        <div class="timer-bar-container" role="progressbar" aria-valuenow="${progress}" aria-valuemin="0" aria-valuemax="100" aria-label="Tiempo restante: ${timeRemaining} segundos">
           <div class="timer-bar ${isWarning ? 'warning' : ''}" style="width: ${progress}%"></div>
         </div>
       </div>
@@ -286,6 +286,15 @@ function setupAccountButtons() {
       const index = parseInt(card.dataset.index);
       copyToClipboard(index);
     });
+
+    // Soporte para teclado (Enter y Space)
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const index = parseInt(card.dataset.index);
+        copyToClipboard(index);
+      }
+    });
   });
 }
 
@@ -370,7 +379,9 @@ function closeAddModal() {
 function switchTab(tabName) {
   // Actualizar botones
   document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab === tabName);
+    const isActive = btn.dataset.tab === tabName;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', isActive);
   });
 
   // Actualizar contenido
