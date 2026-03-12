@@ -7,11 +7,12 @@
 const appState = {
   accounts: [],
   updateInterval: null,
-  scannerStream: null,
   searchQuery: '',
   sortBy: 'name-asc',
   lastRenderTime: 0,
-  renderThrottle: false
+  renderThrottle: false,
+  currentCaptureData: null,
+  currentCaptureImage: null
 };
 
 // Inicializar la extensión cuando se carga el popup
@@ -22,7 +23,6 @@ document.addEventListener('DOMContentLoaded', initializeApp);
  */
 async function initializeApp() {
   await loadAccounts();
-  await loadTheme();
   await loadSortPreference();
   renderAccounts();
   setupEventListeners();
@@ -125,7 +125,7 @@ function renderAccounts() {
             <p>${escapeHtml(account.platform)}</p>
           </div>
           <button class="account-delete" data-index="${realIndex}" title="Eliminar cuenta" aria-label="Eliminar cuenta ${escapeHtml(account.name)}">
-            🗑️
+            Eliminar
           </button>
         </div>
         <div class="code-container">
@@ -254,8 +254,15 @@ function setupEventListeners() {
   // Formulario manual
   document.getElementById('manual-form')?.addEventListener('submit', handleManualSubmit);
 
-  // Botón iniciar cámara
-  document.getElementById('start-camera')?.addEventListener('click', startQRScanner);
+  // Captura de pantalla
+  document.getElementById('capture-screen-btn')?.addEventListener('click', captureVisibleTab);
+  document.getElementById('scan-area-btn')?.addEventListener('click', scanSelectedArea);
+
+  // Subir archivo
+  document.getElementById('upload-file-btn')?.addEventListener('click', () => {
+    document.getElementById('qr-file-input').click();
+  });
+  document.getElementById('qr-file-input')?.addEventListener('change', handleFileUpload);
 
   // Búsqueda
   document.getElementById('search-input')?.addEventListener('input', handleSearch);
@@ -267,9 +274,6 @@ function setupEventListeners() {
     document.getElementById('import-file').click();
   });
   document.getElementById('import-file')?.addEventListener('change', importAccounts);
-
-  // Theme toggle
-  document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
 
   // Sort
   document.getElementById('sort-select')?.addEventListener('change', handleSort);
@@ -330,7 +334,7 @@ async function copyToClipboard(index) {
     const btn = document.querySelector(`.copy-btn[data-index="${index}"]`);
     if (btn) {
       const originalText = btn.textContent;
-      btn.textContent = '✓ Copiado';
+      btn.textContent = 'Copiado';
       btn.classList.add('copied');
 
       setTimeout(() => {
@@ -396,7 +400,7 @@ function openAddModal() {
 function closeAddModal() {
   document.getElementById('add-modal').classList.add('hidden');
   document.getElementById('manual-form').reset();
-  stopQRScanner();
+  clearCapturePreview();
 }
 
 /**
@@ -416,9 +420,9 @@ function switchTab(tabName) {
     content.classList.toggle('active', content.id === `${tabName}-tab`);
   });
 
-  // Detener scanner si se cambia de tab
-  if (tabName !== 'qr') {
-    stopQRScanner();
+  // Limpiar preview si se cambia de tab
+  if (tabName !== 'capture' && tabName !== 'upload') {
+    clearCapturePreview();
   }
 }
 
@@ -470,48 +474,248 @@ async function handleManualSubmit(e) {
 }
 
 /**
- * Inicia el escáner de códigos QR
+ * Captura la pestaña visible actual del navegador
  */
-async function startQRScanner() {
-  const video = document.getElementById('qr-video');
-  const instructions = document.getElementById('qr-instructions');
-
+async function captureVisibleTab() {
   try {
-    // Solicitar acceso a la cámara
-    appState.scannerStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment' }
+    const captureBtn = document.getElementById('capture-screen-btn');
+    captureBtn.disabled = true;
+    captureBtn.textContent = 'Capturando...';
+
+    // Capturar pestaña visible
+    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
+      if (chrome.runtime.lastError) {
+        throw new Error(chrome.runtime.lastError.message);
+      }
+
+      // Mostrar preview y permitir selección de área
+      displayCapturePreview(dataUrl, 'capture');
+
+      captureBtn.disabled = false;
+      captureBtn.textContent = 'Capturar Pestaña';
     });
-
-    video.srcObject = appState.scannerStream;
-    video.play();
-
-    instructions.classList.add('hidden');
-    video.classList.remove('hidden');
-
-    // Aquí se integraría una librería de escaneo QR como jsQR
-    // Por ahora mostramos un mensaje
-    alert('Función de escaneo QR en desarrollo. Por favor, usa la opción manual.');
-    stopQRScanner();
   } catch (error) {
-    console.error('Error accediendo a la cámara:', error);
-    alert('No se pudo acceder a la cámara. Por favor, verifica los permisos.');
+    console.error('Error capturando pantalla:', error);
+    alert('No se pudo capturar la pantalla. Asegúrate de que la extensión tiene permisos necesarios.');
+    document.getElementById('capture-screen-btn').disabled = false;
+    document.getElementById('capture-screen-btn').textContent = 'Capturar Pestaña';
   }
 }
 
 /**
- * Detiene el escáner de códigos QR
+ * Muestra el preview de la captura y permite seleccionar área
+ * @param {string} dataUrl - Data URL de la imagen capturada
+ * @param {string} source - Fuente de la imagen ('capture' o 'upload')
  */
-function stopQRScanner() {
-  if (appState.scannerStream) {
-    appState.scannerStream.getTracks().forEach(track => track.stop());
-    appState.scannerStream = null;
+function displayCapturePreview(dataUrl, source) {
+  const previewContainer = source === 'capture'
+    ? document.getElementById('capture-preview')
+    : document.getElementById('upload-preview');
+
+  const img = new Image();
+  img.onload = () => {
+    previewContainer.innerHTML = '';
+    previewContainer.appendChild(img);
+    previewContainer.classList.remove('hidden');
+
+    // Guardar imagen en estado para procesamiento
+    appState.currentCaptureData = dataUrl;
+    appState.currentCaptureImage = img;
+
+    // Mostrar botón de escanear si es captura
+    if (source === 'capture') {
+      document.getElementById('scan-area-btn').classList.remove('hidden');
+    } else {
+      // Para upload, escanear automáticamente
+      scanFullImage(dataUrl);
+    }
+  };
+  img.src = dataUrl;
+  img.style.maxWidth = '100%';
+  img.style.borderRadius = '8px';
+}
+
+/**
+ * Escanea el área seleccionada (por ahora toda la imagen)
+ */
+async function scanSelectedArea() {
+  if (!appState.currentCaptureData) {
+    alert('No hay imagen para escanear');
+    return;
   }
 
-  const video = document.getElementById('qr-video');
-  const instructions = document.getElementById('qr-instructions');
+  scanFullImage(appState.currentCaptureData);
+}
 
-  video.classList.add('hidden');
-  instructions.classList.remove('hidden');
+/**
+ * Escanea toda la imagen en busca de código QR
+ * @param {string} dataUrl - Data URL de la imagen
+ */
+async function scanFullImage(dataUrl) {
+  const scanBtn = document.getElementById('scan-area-btn');
+  if (scanBtn) {
+    scanBtn.disabled = true;
+    scanBtn.textContent = 'Escaneando...';
+  }
+
+  try {
+    // Cargar imagen en canvas
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.getElementById('processing-canvas');
+      const ctx = canvas.getContext('2d');
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      // Obtener datos de imagen
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      // Escanear con jsQR
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'dontInvert',
+      });
+
+      if (code) {
+        // QR encontrado, parsear y auto-completar
+        const parsedData = parseOTPAuthURI(code.data);
+        if (parsedData) {
+          autoFillFormFromQR(parsedData);
+          switchTab('manual');
+          alert('Código QR escaneado correctamente. Revisa y guarda la cuenta.');
+        } else {
+          alert('El código QR no contiene datos TOTP válidos.');
+        }
+      } else {
+        alert('No se encontró un código QR en la imagen. Asegúrate de que el QR sea visible y esté completo.');
+      }
+
+      if (scanBtn) {
+        scanBtn.disabled = false;
+        scanBtn.textContent = 'Escanear Área Seleccionada';
+      }
+    };
+    img.src = dataUrl;
+  } catch (error) {
+    console.error('Error escaneando QR:', error);
+    alert('Error al escanear el código QR.');
+    if (scanBtn) {
+      scanBtn.disabled = false;
+      scanBtn.textContent = 'Escanear Área Seleccionada';
+    }
+  }
+}
+
+/**
+ * Maneja la subida de archivo de imagen
+ * @param {Event} event - Evento de change del input file
+ */
+async function handleFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Validar tipo de archivo
+  if (!file.type.match('image.*')) {
+    alert('Por favor selecciona un archivo de imagen válido (PNG, JPG, JPEG, WebP)');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    displayCapturePreview(e.target.result, 'upload');
+  };
+  reader.readAsDataURL(file);
+}
+
+/**
+ * Parsea una URI otpauth://
+ * @param {string} uri - URI a parsear
+ * @returns {Object|null} - Datos parseados o null si es inválido
+ */
+function parseOTPAuthURI(uri) {
+  try {
+    // Validar formato básico
+    if (!uri.startsWith('otpauth://totp/')) {
+      return null;
+    }
+
+    const url = new URL(uri);
+
+    // Extraer label (formato: issuer:account o solo account)
+    const label = decodeURIComponent(url.pathname.substring(1));
+    let issuer = '';
+    let account = label;
+
+    if (label.includes(':')) {
+      const parts = label.split(':');
+      issuer = parts[0];
+      account = parts.slice(1).join(':');
+    }
+
+    // Extraer parámetros
+    const secret = url.searchParams.get('secret');
+    const issuerParam = url.searchParams.get('issuer');
+    const algorithm = url.searchParams.get('algorithm') || 'SHA1';
+    const digits = url.searchParams.get('digits') || '6';
+    const period = url.searchParams.get('period') || '30';
+
+    // Validar que tenga secret
+    if (!secret) {
+      return null;
+    }
+
+    return {
+      name: account || 'Account',
+      platform: issuerParam || issuer || 'Platform',
+      secret: secret,
+      algorithm: algorithm.toUpperCase(),
+      digits: parseInt(digits),
+      period: parseInt(period)
+    };
+  } catch (error) {
+    console.error('Error parseando otpauth URI:', error);
+    return null;
+  }
+}
+
+/**
+ * Auto-completa el formulario con datos del QR
+ * @param {Object} data - Datos parseados del QR
+ */
+function autoFillFormFromQR(data) {
+  document.getElementById('account-name').value = data.name;
+  document.getElementById('account-platform').value = data.platform;
+  document.getElementById('secret-key').value = data.secret;
+  document.getElementById('digits').value = data.digits;
+  document.getElementById('period').value = data.period;
+  document.getElementById('algorithm').value = data.algorithm;
+}
+
+/**
+ * Limpia el preview de captura
+ */
+function clearCapturePreview() {
+  const capturePreview = document.getElementById('capture-preview');
+  const uploadPreview = document.getElementById('upload-preview');
+  const scanBtn = document.getElementById('scan-area-btn');
+
+  if (capturePreview) {
+    capturePreview.innerHTML = '';
+    capturePreview.classList.add('hidden');
+  }
+
+  if (uploadPreview) {
+    uploadPreview.innerHTML = '';
+    uploadPreview.classList.add('hidden');
+  }
+
+  if (scanBtn) {
+    scanBtn.classList.add('hidden');
+  }
+
+  appState.currentCaptureData = null;
+  appState.currentCaptureImage = null;
 }
 
 /**
@@ -620,54 +824,6 @@ async function handleSort(e) {
 }
 
 /**
- * Carga el tema guardado
- */
-async function loadTheme() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(['darkTheme'], (result) => {
-      if (result.darkTheme) {
-        document.body.classList.add('dark-theme');
-        updateThemeIcon(true);
-      }
-      resolve();
-    });
-  });
-}
-
-/**
- * Guarda el tema actual
- * @param {boolean} isDark - Si el tema oscuro está activo
- */
-async function saveTheme(isDark) {
-  return new Promise((resolve) => {
-    chrome.storage.local.set({ darkTheme: isDark }, () => {
-      resolve();
-    });
-  });
-}
-
-/**
- * Alterna entre tema claro y oscuro
- */
-async function toggleTheme() {
-  const isDark = document.body.classList.toggle('dark-theme');
-  await saveTheme(isDark);
-  updateThemeIcon(isDark);
-}
-
-/**
- * Actualiza el ícono del botón de tema
- * @param {boolean} isDark - Si el tema oscuro está activo
- */
-function updateThemeIcon(isDark) {
-  const themeBtn = document.getElementById('theme-toggle');
-  if (themeBtn) {
-    themeBtn.textContent = isDark ? '☀️' : '🌙';
-    themeBtn.title = isDark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro';
-  }
-}
-
-/**
  * Exporta todas las cuentas a un archivo JSON
  */
 function exportAccounts() {
@@ -695,7 +851,7 @@ function exportAccounts() {
   URL.revokeObjectURL(url);
 
   // Mostrar confirmación
-  alert(`✓ ${appState.accounts.length} cuentas exportadas exitosamente`);
+  alert(`${appState.accounts.length} cuentas exportadas exitosamente`);
 }
 
 /**
@@ -754,16 +910,16 @@ async function importAccounts(e) {
       await saveAccounts();
       renderAccounts();
 
-      let message = `✓ ${validAccounts.length} cuentas importadas exitosamente`;
+      let message = `${validAccounts.length} cuentas importadas exitosamente`;
       if (errors.length > 0) {
-        message += `\n\n⚠️ ${errors.length} cuentas no pudieron importarse:\n${errors.slice(0, 5).join('\n')}`;
+        message += `\n\n${errors.length} cuentas no pudieron importarse:\n${errors.slice(0, 5).join('\n')}`;
         if (errors.length > 5) {
           message += `\n... y ${errors.length - 5} más`;
         }
       }
       alert(message);
     } else {
-      alert('❌ No se pudo importar ninguna cuenta:\n' + errors.join('\n'));
+      alert('No se pudo importar ninguna cuenta:\n' + errors.join('\n'));
     }
   } catch (error) {
     console.error('Error importando cuentas:', error);
@@ -825,5 +981,4 @@ window.addEventListener('beforeunload', () => {
   if (appState.updateInterval) {
     clearInterval(appState.updateInterval);
   }
-  stopQRScanner();
 });

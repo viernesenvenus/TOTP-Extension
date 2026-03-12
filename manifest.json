@@ -5,7 +5,8 @@
   "description": "Espejo de tu autenticador móvil para copiar códigos MFA rápidamente",
   "permissions": [
     "storage",
-    "clipboardWrite"
+    "clipboardWrite",
+    "activeTab"
   ],
   "action": {
     "default_popup": "popup/popup.html",
