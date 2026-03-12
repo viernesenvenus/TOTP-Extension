@@ -34,3 +34,9 @@ npm-debug.log*
 # Testing
 coverage/
 .nyc_output/
+
+# Claude Code configuración local
+.claude/
+
+# Archivos temporales de Windows
+nul
