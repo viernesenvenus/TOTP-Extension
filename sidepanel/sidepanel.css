@@ -74,10 +74,16 @@ body {
 header {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding: 12px 16px;
+  justify-content: space-between;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
+}
+
+header h1 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .icon-btn {
