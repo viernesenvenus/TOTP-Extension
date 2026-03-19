@@ -287,6 +287,7 @@ function setupEventListeners() {
  * Abre la vista de configuraciones
  */
 function openSettings() {
+  document.querySelector('header').classList.add('hidden');
   document.getElementById('accounts-list').classList.add('hidden');
   document.getElementById('search-container')?.classList.add('hidden');
   document.getElementById('add-account-btn-container')?.classList.add('hidden');
@@ -300,6 +301,7 @@ function openSettings() {
  */
 function closeSettings() {
   document.getElementById('settings-view').classList.add('hidden');
+  document.querySelector('header').classList.remove('hidden');
   renderAccounts();
 }
 
