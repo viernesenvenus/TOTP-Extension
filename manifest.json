@@ -8,7 +8,9 @@
     "clipboardWrite",
     "activeTab",
     "sidePanel",
-    "tabs",
+    "tabs"
+  ],
+  "host_permissions": [
     "<all_urls>"
   ],
   "action": {
