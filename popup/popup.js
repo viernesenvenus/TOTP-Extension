@@ -181,7 +181,11 @@ async function copyCode(index, card) {
 
     // Visual feedback
     card.classList.add('copied');
-    setTimeout(() => card.classList.remove('copied'), 1500);
+
+    // Auto-close after showing feedback (UX improvement)
+    setTimeout(() => {
+      window.close();
+    }, 1800);
   } catch (e) {
     console.error('Error copying:', e);
   }
