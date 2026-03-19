@@ -202,7 +202,37 @@ function setupListeners() {
     if (e.target.id === 'add-modal') closeModal();
   });
 
-  // Formulario
+  // Tabs
+  document.querySelectorAll('.modal-tabs .tab').forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  });
+
+  // QR Upload
+  const dropzone = document.getElementById('qr-dropzone');
+  const qrFile = document.getElementById('qr-file');
+
+  document.getElementById('qr-select-btn').addEventListener('click', () => qrFile.click());
+
+  qrFile.addEventListener('change', e => {
+    if (e.target.files[0]) processQrImage(e.target.files[0]);
+  });
+
+  dropzone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.classList.remove('dragover');
+  });
+
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) processQrImage(e.dataTransfer.files[0]);
+  });
+
+  // Formulario manual
   document.getElementById('add-form').addEventListener('submit', handleSubmit);
 
   // Settings
@@ -221,11 +251,136 @@ function setupListeners() {
 // Modal
 function openModal() {
   document.getElementById('add-modal').classList.remove('hidden');
+  // Reset al tab QR por defecto
+  switchTab('qr');
+  resetQrUpload();
 }
 
 function closeModal() {
   document.getElementById('add-modal').classList.add('hidden');
   document.getElementById('add-form').reset();
+  resetQrUpload();
+}
+
+// Tabs
+function switchTab(tabName) {
+  document.querySelectorAll('.modal-tabs .tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tabName);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => {
+    c.classList.toggle('active', c.id === `tab-${tabName}`);
+  });
+}
+
+// QR Upload
+function resetQrUpload() {
+  document.getElementById('qr-file').value = '';
+  document.getElementById('qr-preview').classList.add('hidden');
+  document.getElementById('qr-dropzone').classList.remove('hidden');
+  document.getElementById('qr-status').className = 'qr-status';
+  document.getElementById('qr-status').textContent = '';
+}
+
+async function processQrImage(file) {
+  const dropzone = document.getElementById('qr-dropzone');
+  const preview = document.getElementById('qr-preview');
+  const img = document.getElementById('qr-image');
+  const status = document.getElementById('qr-status');
+
+  // Mostrar preview
+  const url = URL.createObjectURL(file);
+  img.src = url;
+  dropzone.classList.add('hidden');
+  preview.classList.remove('hidden');
+  status.className = 'qr-status';
+  status.textContent = 'Escaneando...';
+
+  // Esperar a que cargue la imagen
+  img.onload = () => {
+    const canvas = document.getElementById('qr-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    ctx.drawImage(img, 0, 0);
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+    if (code && code.data) {
+      const parsed = parseOtpAuthUri(code.data);
+      if (parsed) {
+        status.className = 'qr-status success';
+        status.textContent = `Cuenta detectada: ${parsed.platform}`;
+
+        // Agregar cuenta automaticamente
+        setTimeout(() => {
+          addAccountFromQr(parsed);
+        }, 800);
+      } else {
+        status.className = 'qr-status error';
+        status.textContent = 'QR no contiene datos TOTP validos';
+      }
+    } else {
+      status.className = 'qr-status error';
+      status.textContent = 'No se detecto un codigo QR';
+    }
+
+    URL.revokeObjectURL(url);
+  };
+}
+
+function parseOtpAuthUri(uri) {
+  try {
+    if (!uri.startsWith('otpauth://totp/')) return null;
+
+    const url = new URL(uri);
+    const label = decodeURIComponent(url.pathname.substring(1));
+
+    let issuer = '';
+    let account = label;
+    if (label.includes(':')) {
+      const parts = label.split(':');
+      issuer = parts[0];
+      account = parts.slice(1).join(':');
+    }
+
+    const secret = url.searchParams.get('secret');
+    const issuerParam = url.searchParams.get('issuer');
+
+    if (!secret) return null;
+
+    return {
+      platform: issuerParam || issuer || 'Cuenta',
+      name: account || 'Usuario',
+      secret: secret.toUpperCase(),
+      digits: parseInt(url.searchParams.get('digits')) || 6,
+      period: parseInt(url.searchParams.get('period')) || 30,
+      algorithm: (url.searchParams.get('algorithm') || 'SHA1').toUpperCase()
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+async function addAccountFromQr(data) {
+  // Verificar duplicado
+  if (state.accounts.some(a =>
+    a.platform.toLowerCase() === data.platform.toLowerCase() &&
+    a.name.toLowerCase() === data.name.toLowerCase()
+  )) {
+    alert('Esta cuenta ya existe');
+    resetQrUpload();
+    return;
+  }
+
+  state.accounts.push({
+    ...data,
+    createdAt: new Date().toISOString()
+  });
+
+  await saveAccounts();
+  closeModal();
+  render();
 }
 
 // Manejar formulario
