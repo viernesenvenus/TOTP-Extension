@@ -6,162 +6,138 @@
   <title>TOTP Authenticator</title>
   <link rel="stylesheet" href="popup.css">
 </head>
-<body role="application" aria-label="Autenticador TOTP">
+<body>
+  <!-- Loading state -->
+  <div id="loading" class="loading">
+    <div class="loading-spinner"></div>
+  </div>
+
   <div class="container">
     <header>
-      <div class="header-content">
-        <h1>TOTP Authenticator</h1>
-        <button id="settings-btn" class="settings-btn" title="Configuracion">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
-        </button>
-      </div>
+      <h1>Cuentas</h1>
+      <button id="settings-btn" class="icon-btn" title="Administrar cuentas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
     </header>
 
-    <!-- Search and Sort bar -->
-    <div id="search-container" class="search-container hidden" role="search">
-      <input type="text" id="search-input" class="search-input" placeholder="Buscar cuentas..." aria-label="Buscar cuentas">
-      <button id="clear-search" class="clear-search hidden" aria-label="Limpiar búsqueda">✕</button>
-      <div class="sort-controls">
-        <label for="sort-select" class="sort-label">Ordenar:</label>
-        <select id="sort-select" class="sort-select" aria-label="Ordenar cuentas">
-          <option value="name-asc">Nombre (A-Z)</option>
-          <option value="name-desc">Nombre (Z-A)</option>
-          <option value="platform-asc">Plataforma (A-Z)</option>
-          <option value="platform-desc">Plataforma (Z-A)</option>
-          <option value="date-desc">Más recientes</option>
-          <option value="date-asc">Más antiguas</option>
-        </select>
+    <!-- Vista principal de cuentas -->
+    <main id="main-view">
+      <div id="search-box" class="search-box hidden">
+        <input type="text" id="search-input" placeholder="Buscar cuentas...">
       </div>
-    </div>
 
-    <!-- Lista de códigos TOTP -->
-    <div id="accounts-list" class="accounts-list" role="list">
-      <!-- Se llenará dinámicamente -->
-    </div>
+      <div id="accounts-list" class="accounts-list">
+        <!-- Se llena dinamicamente -->
+      </div>
+
+      <div id="empty-state" class="empty-state hidden">
+        <p>No hay cuentas configuradas</p>
+        <button id="add-first-btn" class="btn-primary">Agregar cuenta</button>
+      </div>
+    </main>
 
     <!-- Vista de configuraciones -->
     <div id="settings-view" class="settings-view hidden">
       <div class="settings-header">
-        <button id="back-btn" class="back-btn">
+        <button id="back-btn" class="icon-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
           </svg>
         </button>
         <h2>Administrar cuentas</h2>
       </div>
-      <div id="settings-accounts" class="settings-accounts">
+      <div id="settings-list" class="settings-list">
         <!-- Lista de cuentas para eliminar -->
       </div>
     </div>
 
-    <!-- Mensaje cuando no hay cuentas -->
-    <div id="empty-state" class="empty-state hidden" role="status" aria-live="polite">
-      <p>No hay cuentas configuradas</p>
-      <button id="add-first-account" class="btn-primary" aria-label="Agregar tu primera cuenta TOTP">Agregar Cuenta</button>
-    </div>
+    <!-- Footer con boton agregar -->
+    <footer id="footer">
+      <button id="add-btn" class="btn-primary">+ Agregar cuenta</button>
+      <div class="security-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <span>Almacenamiento local y cifrado</span>
+      </div>
+    </footer>
 
-    <!-- Botón para agregar nueva cuenta -->
-    <div id="add-account-btn-container" class="add-btn-container hidden">
-      <button id="add-account-btn" class="btn-add">+ Agregar Cuenta</button>
-    </div>
-
-    <!-- Modal para agregar cuenta -->
-    <div id="add-modal" class="modal hidden" role="dialog" aria-labelledby="modal-title" aria-modal="true">
+    <!-- Modal agregar cuenta -->
+    <div id="add-modal" class="modal hidden">
       <div class="modal-content">
         <div class="modal-header">
-          <h2 id="modal-title">Agregar Nueva Cuenta</h2>
-          <button id="close-modal" class="close-btn" aria-label="Cerrar modal">&times;</button>
+          <h2>Nueva cuenta</h2>
+          <button id="close-modal" class="icon-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
         </div>
 
-        <div class="modal-body">
-          <!-- Tabs -->
-          <div class="tabs" role="tablist" aria-label="Métodos de agregar cuenta">
-            <button class="tab-btn active" data-tab="manual" role="tab" aria-selected="true" aria-controls="manual-tab" id="tab-manual">Manual</button>
-            <button class="tab-btn" data-tab="capture" role="tab" aria-selected="false" aria-controls="capture-tab" id="tab-capture">Capturar Pantalla</button>
-            <button class="tab-btn" data-tab="upload" role="tab" aria-selected="false" aria-controls="upload-tab" id="tab-upload">Subir Archivo</button>
+        <!-- Tabs -->
+        <div class="modal-tabs">
+          <button class="tab active" data-tab="qr">Escanear QR</button>
+          <button class="tab" data-tab="manual">Manual</button>
+        </div>
+
+        <!-- Tab QR -->
+        <div id="tab-qr" class="tab-content active">
+          <div class="qr-options">
+            <button type="button" id="capture-btn" class="qr-option-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              <span>Capturar pantalla</span>
+              <small>Escanea QR de la pagina actual</small>
+            </button>
+            <button type="button" id="upload-btn" class="qr-option-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <path d="M21 15l-5-5L5 21"/>
+              </svg>
+              <span>Subir imagen</span>
+              <small>Selecciona un archivo QR</small>
+            </button>
+            <input type="file" id="qr-file" accept="image/*" hidden>
           </div>
-
-          <!-- Contenido Tab Manual -->
-          <div id="manual-tab" class="tab-content active" role="tabpanel" aria-labelledby="tab-manual">
-            <form id="manual-form" aria-label="Formulario de ingreso manual">
-              <div class="form-group">
-                <label for="account-name">Nombre de la cuenta:</label>
-                <input type="text" id="account-name" placeholder="Ej: Google, GitHub, AWS" required>
-              </div>
-
-              <div class="form-group">
-                <label for="account-platform">Plataforma:</label>
-                <input type="text" id="account-platform" placeholder="Ej: Gmail, Work, Personal" required>
-              </div>
-
-              <div class="form-group">
-                <label for="secret-key">Clave Secreta (Base32):</label>
-                <input type="text" id="secret-key" placeholder="JBSWY3DPEHPK3PXP" required>
-                <small>La clave que proporciona la plataforma al configurar MFA</small>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="digits">Dígitos:</label>
-                  <select id="digits">
-                    <option value="6" selected>6</option>
-                    <option value="7">7</option>
-                    <option value="8">8</option>
-                  </select>
-                </div>
-
-                <div class="form-group">
-                  <label for="period">Período (s):</label>
-                  <select id="period">
-                    <option value="30" selected>30</option>
-                    <option value="60">60</option>
-                  </select>
-                </div>
-
-                <div class="form-group">
-                  <label for="algorithm">Algoritmo:</label>
-                  <select id="algorithm">
-                    <option value="SHA1" selected>SHA1</option>
-                    <option value="SHA256">SHA256</option>
-                    <option value="SHA512">SHA512</option>
-                  </select>
-                </div>
-              </div>
-
-              <button type="submit" class="btn-primary">Guardar Cuenta</button>
-            </form>
+          <div id="qr-preview" class="qr-preview hidden">
+            <img id="qr-image" alt="QR Preview">
+            <div id="qr-status" class="qr-status"></div>
+            <button type="button" id="qr-retry" class="btn-secondary">Intentar de nuevo</button>
           </div>
+        </div>
 
-          <!-- Contenido Tab Captura de Pantalla -->
-          <div id="capture-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-capture">
-            <div class="capture-container">
-              <p class="capture-instructions">Captura la pestaña actual del navegador y selecciona el área del código QR</p>
-              <button id="capture-screen-btn" class="btn-primary">Capturar Pestaña</button>
-              <div id="capture-preview" class="capture-preview hidden"></div>
-              <button id="scan-area-btn" class="btn-primary hidden">Escanear Área Seleccionada</button>
+        <!-- Tab Manual -->
+        <div id="tab-manual" class="tab-content">
+          <form id="add-form">
+            <div class="form-group">
+              <label for="platform">Plataforma</label>
+              <input type="text" id="platform" placeholder="Google, GitHub, AWS...">
             </div>
-          </div>
-
-          <!-- Contenido Tab Subir Archivo -->
-          <div id="upload-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-upload">
-            <div class="file-upload-area">
-              <p>Sube una imagen que contenga un código QR TOTP</p>
-              <button id="upload-file-btn" class="btn-file-upload">Seleccionar Archivo</button>
-              <input type="file" id="qr-file-input" accept="image/png,image/jpeg,image/jpg,image/webp" class="hidden">
-              <div id="upload-preview" class="capture-preview hidden"></div>
+            <div class="form-group">
+              <label for="account">Cuenta / Email</label>
+              <input type="text" id="account" placeholder="usuario@email.com">
             </div>
-          </div>
+            <div class="form-group">
+              <label for="secret">Clave secreta (Base32)</label>
+              <input type="text" id="secret" placeholder="JBSWY3DPEHPK3PXP">
+            </div>
+            <button type="submit" class="btn-primary">Guardar</button>
+          </form>
         </div>
       </div>
     </div>
+
+    <canvas id="qr-canvas" hidden></canvas>
   </div>
 
-  <!-- Canvas oculto para procesamiento de imágenes -->
-  <canvas id="processing-canvas"></canvas>
-
+  <script src="../libs/browser-polyfill.js"></script>
   <script src="../libs/otpauth-9.1.3.min.js"></script>
   <script src="../libs/jsqr.min.js"></script>
   <script src="popup.js"></script>

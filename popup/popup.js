@@ -1,198 +1,151 @@
 /**
- * TOTP Authenticator Extension - Popup Logic
- * Maneja la interfaz y generación de códigos TOTP
+ * TOTP Authenticator - Popup (Safari/Firefox compatible)
+ * Same functionality as sidepanel with cross-browser support
  */
 
-// Estado global de la aplicación
-const appState = {
+const state = {
   accounts: [],
-  updateInterval: null,
   searchQuery: '',
-  sortBy: 'name-asc',
-  lastRenderTime: 0,
-  renderThrottle: false,
-  currentCaptureData: null,
-  currentCaptureImage: null
+  updateInterval: null
 };
 
-// Inicializar la extensión cuando se carga el popup
-document.addEventListener('DOMContentLoaded', initializeApp);
+// Initialize
+document.addEventListener('DOMContentLoaded', init);
 
-/**
- * Inicializa la aplicación
- */
-async function initializeApp() {
+async function init() {
   await loadAccounts();
-  await loadSortPreference();
-  renderAccounts();
-  setupEventListeners();
+  render();
+  setupListeners();
   startAutoUpdate();
+
+  // Smooth transition: hide loading, show content
+  setTimeout(() => {
+    document.getElementById('loading').classList.add('hidden');
+    document.querySelector('.container').classList.add('loaded');
+  }, 300);
 }
 
-/**
- * Carga las cuentas desde chrome.storage
- */
+// Load accounts - cross-browser compatible
 async function loadAccounts() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(['accounts'], (result) => {
-      appState.accounts = result.accounts || [];
+  return new Promise(resolve => {
+    const storage = typeof browser !== 'undefined' ? browser.storage : chrome.storage;
+    storage.local.get(['accounts'], result => {
+      state.accounts = result.accounts || [];
       resolve();
     });
   });
 }
 
-/**
- * Guarda las cuentas en chrome.storage
- */
+// Save accounts - cross-browser compatible
 async function saveAccounts() {
-  return new Promise((resolve) => {
-    chrome.storage.local.set({ accounts: appState.accounts }, () => {
-      resolve();
-    });
+  return new Promise(resolve => {
+    const storage = typeof browser !== 'undefined' ? browser.storage : chrome.storage;
+    storage.local.set({ accounts: state.accounts }, resolve);
   });
 }
 
-/**
- * Renderiza todas las cuentas en la UI
- */
-function renderAccounts() {
-  // Throttle renders para mejorar rendimiento
-  const now = Date.now();
-  if (appState.renderThrottle && now - appState.lastRenderTime < 100) {
-    return;
-  }
-  appState.lastRenderTime = now;
+// Render main view
+function render() {
+  const list = document.getElementById('accounts-list');
+  const empty = document.getElementById('empty-state');
+  const search = document.getElementById('search-box');
+  const footer = document.getElementById('footer');
 
-  const accountsList = document.getElementById('accounts-list');
-  const emptyState = document.getElementById('empty-state');
-  const addBtnContainer = document.getElementById('add-account-btn-container');
-  const searchContainer = document.getElementById('search-container');
-
-  // Mostrar/ocultar barra de búsqueda
-  if (appState.accounts.length > 3) {
-    searchContainer.classList.remove('hidden');
+  // Show/hide search
+  if (state.accounts.length > 3) {
+    search.classList.remove('hidden');
   } else {
-    searchContainer.classList.add('hidden');
+    search.classList.add('hidden');
   }
 
-  // Filtrar cuentas según búsqueda
-  let filteredAccounts = appState.accounts.filter(account => {
-    if (!appState.searchQuery) return true;
-    const query = appState.searchQuery.toLowerCase();
-    return account.name.toLowerCase().includes(query) ||
-           account.platform.toLowerCase().includes(query);
+  // Filter
+  let filtered = state.accounts.filter(acc => {
+    if (!state.searchQuery) return true;
+    const q = state.searchQuery.toLowerCase();
+    return acc.platform.toLowerCase().includes(q) ||
+           acc.name.toLowerCase().includes(q);
   });
 
-  // Ordenar cuentas
-  filteredAccounts = sortAccounts(filteredAccounts, appState.sortBy);
-
-  // Mostrar estado vacío si no hay cuentas
-  if (appState.accounts.length === 0) {
-    accountsList.innerHTML = '';
-    emptyState.classList.remove('hidden');
-    addBtnContainer.classList.add('hidden');
+  // Empty state
+  if (state.accounts.length === 0) {
+    list.innerHTML = '';
+    empty.classList.remove('hidden');
+    footer.classList.add('hidden');
     return;
   }
 
-  // Ocultar estado vacío y mostrar botón de agregar
-  emptyState.classList.add('hidden');
-  addBtnContainer.classList.remove('hidden');
+  empty.classList.add('hidden');
+  footer.classList.remove('hidden');
 
-  // Mostrar mensaje si no hay resultados de búsqueda
-  if (filteredAccounts.length === 0 && appState.searchQuery) {
-    accountsList.innerHTML = `
-      <div class="empty-state">
-        <p>No se encontraron cuentas que coincidan con "${appState.searchQuery}"</p>
-      </div>
-    `;
+  // No search results
+  if (filtered.length === 0) {
+    list.innerHTML = '<p class="settings-empty">No se encontraron cuentas</p>';
     return;
   }
 
-  // Renderizar cada cuenta
-  accountsList.innerHTML = filteredAccounts.map((account, index) => {
-    // Obtener el índice real en el array completo
-    const realIndex = appState.accounts.indexOf(account);
-    const code = generateTOTP(account);
-    const period = account.period || 30;
-    const timeRemaining = getTimeRemaining(period);
-    const progress = (timeRemaining / period) * 100;
+  // Render cards
+  list.innerHTML = filtered.map((acc, i) => {
+    const realIndex = state.accounts.indexOf(acc);
+    const code = generateTOTP(acc);
+    const period = acc.period || 30;
+    const timeLeft = getTimeRemaining(period);
+    const progress = (timeLeft / period) * 100;
     const circumference = 2 * Math.PI * 18;
     const offset = circumference - (progress / 100) * circumference;
 
     let timerClass = '';
-    if (timeRemaining <= 5) timerClass = 'danger';
-    else if (timeRemaining <= 10) timerClass = 'warning';
+    if (timeLeft <= 5) timerClass = 'danger';
+    else if (timeLeft <= 10) timerClass = 'warning';
 
     return `
       <div class="account-card" data-index="${realIndex}">
-        <div class="account-header">
-          <div class="account-info">
-            <h3>${escapeHtml(account.platform)}</h3>
-            <p>${escapeHtml(account.name)}</p>
-          </div>
+        <div class="account-info">
+          <div class="account-platform">${escapeHtml(acc.platform)}</div>
+          <div class="account-name">${escapeHtml(acc.name)}</div>
         </div>
         <div class="code-row">
-          <div class="timer-circle">
-            <svg viewBox="0 0 36 36">
-              <circle class="timer-bg" cx="18" cy="18" r="15.5"/>
-              <circle class="timer-progress ${timerClass}" cx="18" cy="18" r="15.5"
-                stroke-dasharray="97.4"
-                stroke-dashoffset="${97.4 - (progress / 100) * 97.4}"/>
+          <div class="timer">
+            <svg viewBox="0 0 44 44">
+              <circle class="timer-bg" cx="22" cy="22" r="18"/>
+              <circle class="timer-progress ${timerClass}" cx="22" cy="22" r="18"
+                stroke-dasharray="${circumference}"
+                stroke-dashoffset="${offset}"/>
             </svg>
-            <span class="timer-text">${timeRemaining}</span>
+            <span class="timer-text">${timeLeft}</span>
           </div>
-          <div class="code-display">${formatCode(code)}</div>
-          <button class="copy-btn" data-index="${realIndex}">Copiar</button>
+          <div class="code">${formatCode(code)}</div>
         </div>
+        <div class="copied-feedback">Copiado!</div>
       </div>
     `;
   }).join('');
 
-  // Agregar event listeners a los botones de copiar y eliminar
-  setupAccountButtons();
+  setupCardListeners();
 }
 
-/**
- * Genera un código TOTP para una cuenta
- * @param {Object} account - Configuración de la cuenta
- * @returns {string} - Código TOTP generado
- */
+// Generate TOTP
 function generateTOTP(account) {
   try {
-    // Crear instancia TOTP usando la librería OTPAuth
     const totp = new OTPAuth.TOTP({
-      issuer: account.platform || 'Account',
-      label: account.name || 'User',
+      issuer: account.platform,
+      label: account.name,
       algorithm: account.algorithm || 'SHA1',
-      digits: parseInt(account.digits) || 6,
-      period: parseInt(account.period) || 30,
-      secret: OTPAuth.Secret.fromBase32(stripSpaces(account.secret))
+      digits: account.digits || 6,
+      period: account.period || 30,
+      secret: OTPAuth.Secret.fromBase32(account.secret.replace(/\s/g, ''))
     });
-
-    // Generar y truncar el código
-    const token = totp.generate();
-    return truncateTo(token, account.digits || 6);
-  } catch (error) {
-    console.error('Error generando TOTP:', error);
+    return totp.generate();
+  } catch (e) {
     return '------';
   }
 }
 
-/**
- * Calcula el tiempo restante en segundos para el período actual
- * @param {number} period - Período en segundos
- * @returns {number} - Segundos restantes
- */
+// Time remaining
 function getTimeRemaining(period = 30) {
-  const now = Math.floor(Date.now() / 1000);
-  return period - (now % period);
+  return period - (Math.floor(Date.now() / 1000) % period);
 }
 
-/**
- * Formatea el código TOTP para mejor legibilidad
- * @param {string} code - Código sin formatear
- * @returns {string} - Código formateado
- */
+// Format code
 function formatCode(code) {
   if (code.length === 6) {
     return `${code.slice(0, 3)} ${code.slice(3)}`;
@@ -200,722 +153,429 @@ function formatCode(code) {
   return code;
 }
 
-/**
- * Elimina espacios de una cadena
- * @param {string} str - Cadena con espacios
- * @returns {string} - Cadena sin espacios
- */
-function stripSpaces(str) {
-  return str.replace(/\s/g, '');
-}
-
-/**
- * Trunca una cadena a un número específico de dígitos
- * @param {string} str - Cadena a truncar
- * @param {number} digits - Número de dígitos
- * @returns {string} - Cadena truncada
- */
-function truncateTo(str, digits) {
-  if (str.length <= digits) {
-    return str;
-  }
-  return str.slice(-digits);
-}
-
-/**
- * Escapa caracteres HTML para prevenir XSS
- * @param {string} text - Texto a escapar
- * @returns {string} - Texto escapado
- */
+// Escape HTML
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
-/**
- * Configura los event listeners principales
- */
-function setupEventListeners() {
-  // Botón agregar primera cuenta
-  document.getElementById('add-first-account')?.addEventListener('click', openAddModal);
-
-  // Botón agregar cuenta
-  document.getElementById('add-account-btn')?.addEventListener('click', openAddModal);
-
-  // Botón cerrar modal
-  document.getElementById('close-modal')?.addEventListener('click', closeAddModal);
-
-  // Cerrar modal al hacer clic fuera
-  document.getElementById('add-modal')?.addEventListener('click', (e) => {
-    if (e.target.id === 'add-modal') {
-      closeAddModal();
-    }
-  });
-
-  // Tabs del modal
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-  });
-
-  // Formulario manual
-  document.getElementById('manual-form')?.addEventListener('submit', handleManualSubmit);
-
-  // Captura de pantalla
-  document.getElementById('capture-screen-btn')?.addEventListener('click', captureVisibleTab);
-  document.getElementById('scan-area-btn')?.addEventListener('click', scanSelectedArea);
-
-  // Subir archivo
-  document.getElementById('upload-file-btn')?.addEventListener('click', () => {
-    document.getElementById('qr-file-input').click();
-  });
-  document.getElementById('qr-file-input')?.addEventListener('change', handleFileUpload);
-
-  // Búsqueda
-  document.getElementById('search-input')?.addEventListener('input', handleSearch);
-  document.getElementById('clear-search')?.addEventListener('click', clearSearch);
-
-  // Sort
-  document.getElementById('sort-select')?.addEventListener('change', handleSort);
-
-  // Settings
-  document.getElementById('settings-btn')?.addEventListener('click', openSettings);
-  document.getElementById('back-btn')?.addEventListener('click', closeSettings);
-}
-
-/**
- * Abre la vista de configuraciones
- */
-function openSettings() {
-  document.querySelector('header').classList.add('hidden');
-  document.getElementById('accounts-list').classList.add('hidden');
-  document.getElementById('search-container')?.classList.add('hidden');
-  document.getElementById('add-account-btn-container')?.classList.add('hidden');
-  document.getElementById('empty-state')?.classList.add('hidden');
-  document.getElementById('settings-view').classList.remove('hidden');
-  renderSettingsAccounts();
-}
-
-/**
- * Cierra la vista de configuraciones
- */
-function closeSettings() {
-  document.getElementById('settings-view').classList.add('hidden');
-  document.querySelector('header').classList.remove('hidden');
-  renderAccounts();
-}
-
-/**
- * Renderiza la lista de cuentas en configuraciones
- */
-function renderSettingsAccounts() {
-  const container = document.getElementById('settings-accounts');
-  if (!container) return;
-
-  if (appState.accounts.length === 0) {
-    container.innerHTML = '<p class="settings-empty">No hay cuentas</p>';
-    return;
-  }
-
-  container.innerHTML = appState.accounts.map((account, index) => `
-    <div class="settings-account-item">
-      <div class="settings-account-info">
-        <span class="settings-account-name">${escapeHtml(account.platform)}</span>
-        <span class="settings-account-email">${escapeHtml(account.name)}</span>
-      </div>
-      <button class="settings-delete-btn" data-index="${index}">Eliminar</button>
-    </div>
-  `).join('');
-
-  // Event listeners para eliminar
-  container.querySelectorAll('.settings-delete-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const index = parseInt(btn.dataset.index);
-      if (confirm(`Eliminar ${appState.accounts[index].platform}?`)) {
-        deleteAccount(index);
-      }
-    });
-  });
-}
-
-/**
- * Configura los botones de cada tarjeta de cuenta
- */
-function setupAccountButtons() {
-  // Botones de copiar
-  document.querySelectorAll('.copy-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const index = parseInt(btn.dataset.index);
-      copyToClipboard(index);
-    });
-  });
-
-  // Clic en tarjeta para copiar
+// Card listeners
+function setupCardListeners() {
   document.querySelectorAll('.account-card').forEach(card => {
     card.addEventListener('click', () => {
-      const index = parseInt(card.dataset.index);
-      copyToClipboard(index);
+      copyCode(parseInt(card.dataset.index), card);
     });
   });
 }
 
-/**
- * Copia el código TOTP al portapapeles
- * @param {number} index - Índice de la cuenta
- */
-async function copyToClipboard(index) {
-  const account = appState.accounts[index];
-  const code = generateTOTP(account);
+// Copy code
+async function copyCode(index, card) {
+  const account = state.accounts[index];
+  if (!account) return;
+
+  const code = generateTOTP(account).replace(/\s/g, '');
 
   try {
-    await navigator.clipboard.writeText(code.replace(/\s/g, ''));
+    await navigator.clipboard.writeText(code);
 
-    // Feedback visual en tarjeta
-    const card = document.querySelector(`.account-card[data-index="${index}"]`);
-    if (card) {
-      card.classList.add('copied');
-      setTimeout(() => card.classList.remove('copied'), 2000);
+    // Visual feedback
+    card.classList.add('copied');
+    setTimeout(() => card.classList.remove('copied'), 1500);
+  } catch (e) {
+    console.error('Error copying:', e);
+  }
+}
+
+// Setup global listeners
+function setupListeners() {
+  // Search
+  document.getElementById('search-input').addEventListener('input', e => {
+    state.searchQuery = e.target.value.trim();
+    render();
+  });
+
+  // Add button
+  document.getElementById('add-btn')?.addEventListener('click', openModal);
+  document.getElementById('add-first-btn')?.addEventListener('click', openModal);
+
+  // Modal
+  document.getElementById('close-modal').addEventListener('click', closeModal);
+  document.getElementById('add-modal').addEventListener('click', e => {
+    if (e.target.id === 'add-modal') closeModal();
+  });
+
+  // Tabs
+  document.querySelectorAll('.modal-tabs .tab').forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  });
+
+  // QR Options
+  const qrFile = document.getElementById('qr-file');
+
+  document.getElementById('capture-btn').addEventListener('click', captureScreen);
+  document.getElementById('upload-btn').addEventListener('click', () => qrFile.click());
+  document.getElementById('qr-retry').addEventListener('click', resetQrUpload);
+
+  qrFile.addEventListener('change', e => {
+    if (e.target.files[0]) processQrImage(e.target.files[0]);
+  });
+
+  // Manual form
+  document.getElementById('add-form').addEventListener('submit', handleSubmit);
+
+  // Settings
+  document.getElementById('settings-btn').addEventListener('click', openSettings);
+  document.getElementById('back-btn').addEventListener('click', closeSettings);
+
+  // Listen for storage changes - cross-browser
+  const storage = typeof browser !== 'undefined' ? browser.storage : chrome.storage;
+  storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.accounts) {
+      state.accounts = changes.accounts.newValue || [];
+      render();
     }
+  });
+}
 
-    // Feedback visual en boton
-    const btn = document.querySelector(`.copy-btn[data-index="${index}"]`);
-    if (btn) {
-      const originalText = btn.textContent;
-      btn.textContent = 'Copiado';
-      btn.classList.add('copied');
+// Modal
+function openModal() {
+  document.getElementById('add-modal').classList.remove('hidden');
+  switchTab('qr');
+  resetQrUpload();
+}
+
+function closeModal() {
+  document.getElementById('add-modal').classList.add('hidden');
+  document.getElementById('add-form').reset();
+  resetQrUpload();
+}
+
+// Tabs
+function switchTab(tabName) {
+  document.querySelectorAll('.modal-tabs .tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tabName);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => {
+    c.classList.toggle('active', c.id === `tab-${tabName}`);
+  });
+}
+
+// QR Upload
+function resetQrUpload() {
+  document.getElementById('qr-file').value = '';
+  document.getElementById('qr-preview').classList.add('hidden');
+  document.querySelector('.qr-options').classList.remove('hidden');
+  document.getElementById('qr-status').className = 'qr-status';
+  document.getElementById('qr-status').textContent = '';
+}
+
+function showQrPreview() {
+  document.querySelector('.qr-options').classList.add('hidden');
+  document.getElementById('qr-preview').classList.remove('hidden');
+}
+
+// Capture screen - cross-browser compatible
+async function captureScreen() {
+  const status = document.getElementById('qr-status');
+  const img = document.getElementById('qr-image');
+
+  showQrPreview();
+  status.className = 'qr-status loading';
+  status.textContent = 'Capturando pantalla...';
+
+  try {
+    // Try using runtime message first (works with background script)
+    const runtime = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
+
+    runtime.sendMessage({ action: 'captureScreen' }, response => {
+      if (runtime.lastError || !response) {
+        // Fallback: try direct capture (Safari may support this)
+        tryDirectCapture(status, img);
+        return;
+      }
+
+      if (response.error) {
+        status.className = 'qr-status error';
+        status.textContent = response.error;
+        return;
+      }
+
+      img.src = response.dataUrl;
+      status.textContent = 'Buscando codigo QR...';
+
+      img.onload = () => {
+        scanQrFromImage(img, response.dataUrl);
+      };
+    });
+  } catch (e) {
+    status.className = 'qr-status error';
+    status.textContent = 'Error al capturar pantalla';
+  }
+}
+
+// Fallback direct capture for browsers that support it
+async function tryDirectCapture(status, img) {
+  try {
+    const tabs = typeof browser !== 'undefined' ? browser.tabs : chrome.tabs;
+
+    tabs.captureVisibleTab(null, { format: 'png' }, dataUrl => {
+      const lastError = (typeof browser !== 'undefined' ? browser.runtime : chrome.runtime).lastError;
+
+      if (lastError || !dataUrl) {
+        status.className = 'qr-status error';
+        status.textContent = 'No se pudo capturar la pantalla. Intenta subir una imagen.';
+        return;
+      }
+
+      img.src = dataUrl;
+      status.textContent = 'Buscando codigo QR...';
+
+      img.onload = () => {
+        scanQrFromImage(img, dataUrl);
+      };
+    });
+  } catch (e) {
+    status.className = 'qr-status error';
+    status.textContent = 'Captura no disponible. Usa "Subir imagen".';
+  }
+}
+
+async function processQrImage(file) {
+  const img = document.getElementById('qr-image');
+  const status = document.getElementById('qr-status');
+
+  showQrPreview();
+  const url = URL.createObjectURL(file);
+  img.src = url;
+  status.className = 'qr-status loading';
+  status.textContent = 'Escaneando...';
+
+  img.onload = () => {
+    scanQrFromImage(img, url);
+  };
+}
+
+function scanQrFromImage(img, urlToRevoke) {
+  const status = document.getElementById('qr-status');
+  const canvas = document.getElementById('qr-canvas');
+  const ctx = canvas.getContext('2d');
+
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  ctx.drawImage(img, 0, 0);
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+  if (code && code.data) {
+    const parsed = parseOtpAuthUri(code.data);
+    if (parsed) {
+      status.className = 'qr-status success';
+      status.textContent = `Cuenta detectada: ${parsed.platform}`;
 
       setTimeout(() => {
-        btn.textContent = originalText;
-        btn.classList.remove('copied');
-      }, 2000);
-    }
-  } catch (error) {
-    console.error('Error copiando al portapapeles:', error);
-    alert('No se pudo copiar el codigo');
-  }
-}
-
-/**
- * Elimina una cuenta
- * @param {number} index - Indice de la cuenta
- */
-async function deleteAccount(index) {
-  appState.accounts.splice(index, 1);
-  await saveAccounts();
-  renderSettingsAccounts();
-  renderAccounts();
-}
-
-/**
- * Inicia la actualización automática de códigos
- */
-function startAutoUpdate() {
-  // Actualizar cada segundo
-  if (appState.updateInterval) {
-    clearInterval(appState.updateInterval);
-  }
-
-  appState.updateInterval = setInterval(() => {
-    // Solo re-renderizar si han pasado códigos que necesitan actualización
-    const needsUpdate = appState.accounts.some(account => {
-      const timeRemaining = getTimeRemaining(account.period || 30);
-      // Re-renderizar cuando cambia el código o cada 1 segundo si quedan menos de 10
-      return timeRemaining === (account.period || 30) || timeRemaining <= 10;
-    });
-
-    if (needsUpdate || !appState.renderThrottle) {
-      renderAccounts();
-      appState.renderThrottle = true;
-    }
-  }, 1000);
-}
-
-/**
- * Abre el modal para agregar cuenta
- */
-function openAddModal() {
-  document.getElementById('add-modal').classList.remove('hidden');
-}
-
-/**
- * Cierra el modal de agregar cuenta
- */
-function closeAddModal() {
-  document.getElementById('add-modal').classList.add('hidden');
-  document.getElementById('manual-form').reset();
-  clearCapturePreview();
-}
-
-/**
- * Cambia entre tabs del modal
- * @param {string} tabName - Nombre del tab
- */
-function switchTab(tabName) {
-  // Actualizar botones
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    const isActive = btn.dataset.tab === tabName;
-    btn.classList.toggle('active', isActive);
-    btn.setAttribute('aria-selected', isActive);
-  });
-
-  // Actualizar contenido
-  document.querySelectorAll('.tab-content').forEach(content => {
-    content.classList.toggle('active', content.id === `${tabName}-tab`);
-  });
-
-  // Limpiar preview si se cambia de tab
-  if (tabName !== 'capture' && tabName !== 'upload') {
-    clearCapturePreview();
-  }
-}
-
-/**
- * Maneja el envío del formulario manual
- * @param {Event} e - Evento de submit
- */
-async function handleManualSubmit(e) {
-  e.preventDefault();
-
-  const name = document.getElementById('account-name').value.trim();
-  const platform = document.getElementById('account-platform').value.trim();
-  const secret = document.getElementById('secret-key').value.trim().toUpperCase();
-
-  // Validar nombre y plataforma
-  if (!name || !platform) {
-    alert('El nombre y la plataforma son obligatorios');
-    return;
-  }
-
-  // Validar duplicados
-  if (isDuplicateAccount(name, platform)) {
-    alert(`Ya existe una cuenta con el nombre "${name}" en la plataforma "${platform}"`);
-    return;
-  }
-
-  // Validar clave secreta
-  const validation = validateSecret(secret);
-  if (!validation.valid) {
-    alert(validation.error);
-    return;
-  }
-
-  const account = {
-    name,
-    platform,
-    secret: stripSpaces(secret),
-    digits: parseInt(document.getElementById('digits').value),
-    period: parseInt(document.getElementById('period').value),
-    algorithm: document.getElementById('algorithm').value,
-    createdAt: new Date().toISOString()
-  };
-
-  // Agregar cuenta
-  appState.accounts.push(account);
-  await saveAccounts();
-  renderAccounts();
-  closeAddModal();
-}
-
-/**
- * Captura la pestaña visible actual del navegador
- */
-async function captureVisibleTab() {
-  try {
-    const captureBtn = document.getElementById('capture-screen-btn');
-    captureBtn.disabled = true;
-    captureBtn.textContent = 'Capturando...';
-
-    // Capturar pestaña visible
-    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-      if (chrome.runtime.lastError) {
-        throw new Error(chrome.runtime.lastError.message);
-      }
-
-      // Mostrar preview y permitir selección de área
-      displayCapturePreview(dataUrl, 'capture');
-
-      captureBtn.disabled = false;
-      captureBtn.textContent = 'Capturar Pestaña';
-    });
-  } catch (error) {
-    console.error('Error capturando pantalla:', error);
-    alert('No se pudo capturar la pantalla. Asegúrate de que la extensión tiene permisos necesarios.');
-    document.getElementById('capture-screen-btn').disabled = false;
-    document.getElementById('capture-screen-btn').textContent = 'Capturar Pestaña';
-  }
-}
-
-/**
- * Muestra el preview de la captura y permite seleccionar área
- * @param {string} dataUrl - Data URL de la imagen capturada
- * @param {string} source - Fuente de la imagen ('capture' o 'upload')
- */
-function displayCapturePreview(dataUrl, source) {
-  const previewContainer = source === 'capture'
-    ? document.getElementById('capture-preview')
-    : document.getElementById('upload-preview');
-
-  const img = new Image();
-  img.onload = () => {
-    previewContainer.innerHTML = '';
-    previewContainer.appendChild(img);
-    previewContainer.classList.remove('hidden');
-
-    // Guardar imagen en estado para procesamiento
-    appState.currentCaptureData = dataUrl;
-    appState.currentCaptureImage = img;
-
-    // Mostrar botón de escanear si es captura
-    if (source === 'capture') {
-      document.getElementById('scan-area-btn').classList.remove('hidden');
+        addAccountFromQr(parsed);
+      }, 800);
     } else {
-      // Para upload, escanear automáticamente
-      scanFullImage(dataUrl);
+      status.className = 'qr-status error';
+      status.textContent = 'QR no contiene datos TOTP validos';
     }
-  };
-  img.src = dataUrl;
-  img.style.maxWidth = '100%';
-  img.style.borderRadius = '8px';
-}
-
-/**
- * Escanea el área seleccionada (por ahora toda la imagen)
- */
-async function scanSelectedArea() {
-  if (!appState.currentCaptureData) {
-    alert('No hay imagen para escanear');
-    return;
+  } else {
+    status.className = 'qr-status error';
+    status.textContent = 'No se encontro codigo QR en la imagen';
   }
 
-  scanFullImage(appState.currentCaptureData);
+  if (urlToRevoke && urlToRevoke.startsWith('blob:')) {
+    URL.revokeObjectURL(urlToRevoke);
+  }
 }
 
-/**
- * Escanea toda la imagen en busca de código QR
- * @param {string} dataUrl - Data URL de la imagen
- */
-async function scanFullImage(dataUrl) {
-  const scanBtn = document.getElementById('scan-area-btn');
-  if (scanBtn) {
-    scanBtn.disabled = true;
-    scanBtn.textContent = 'Escaneando...';
-  }
-
+function parseOtpAuthUri(uri) {
   try {
-    // Cargar imagen en canvas
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.getElementById('processing-canvas');
-      const ctx = canvas.getContext('2d');
-
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-
-      // Obtener datos de imagen
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-      // Escanear con jsQR
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: 'dontInvert',
-      });
-
-      if (code) {
-        // QR encontrado, parsear y auto-completar
-        const parsedData = parseOTPAuthURI(code.data);
-        if (parsedData) {
-          autoFillFormFromQR(parsedData);
-          switchTab('manual');
-          alert('Código QR escaneado correctamente. Revisa y guarda la cuenta.');
-        } else {
-          alert('El código QR no contiene datos TOTP válidos.');
-        }
-      } else {
-        alert('No se encontró un código QR en la imagen. Asegúrate de que el QR sea visible y esté completo.');
-      }
-
-      if (scanBtn) {
-        scanBtn.disabled = false;
-        scanBtn.textContent = 'Escanear Área Seleccionada';
-      }
-    };
-    img.src = dataUrl;
-  } catch (error) {
-    console.error('Error escaneando QR:', error);
-    alert('Error al escanear el código QR.');
-    if (scanBtn) {
-      scanBtn.disabled = false;
-      scanBtn.textContent = 'Escanear Área Seleccionada';
-    }
-  }
-}
-
-/**
- * Maneja la subida de archivo de imagen
- * @param {Event} event - Evento de change del input file
- */
-async function handleFileUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  // Validar tipo de archivo
-  if (!file.type.match('image.*')) {
-    alert('Por favor selecciona un archivo de imagen válido (PNG, JPG, JPEG, WebP)');
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    displayCapturePreview(e.target.result, 'upload');
-  };
-  reader.readAsDataURL(file);
-}
-
-/**
- * Parsea una URI otpauth://
- * @param {string} uri - URI a parsear
- * @returns {Object|null} - Datos parseados o null si es inválido
- */
-function parseOTPAuthURI(uri) {
-  try {
-    // Validar formato básico
-    if (!uri.startsWith('otpauth://totp/')) {
-      return null;
-    }
+    if (!uri.startsWith('otpauth://totp/')) return null;
 
     const url = new URL(uri);
-
-    // Extraer label (formato: issuer:account o solo account)
     const label = decodeURIComponent(url.pathname.substring(1));
+
     let issuer = '';
     let account = label;
-
     if (label.includes(':')) {
       const parts = label.split(':');
       issuer = parts[0];
       account = parts.slice(1).join(':');
     }
 
-    // Extraer parámetros
     const secret = url.searchParams.get('secret');
     const issuerParam = url.searchParams.get('issuer');
-    const algorithm = url.searchParams.get('algorithm') || 'SHA1';
-    const digits = url.searchParams.get('digits') || '6';
-    const period = url.searchParams.get('period') || '30';
 
-    // Validar que tenga secret
-    if (!secret) {
-      return null;
-    }
+    if (!secret) return null;
 
     return {
-      name: account || 'Account',
-      platform: issuerParam || issuer || 'Platform',
-      secret: secret,
-      algorithm: algorithm.toUpperCase(),
-      digits: parseInt(digits),
-      period: parseInt(period)
+      platform: issuerParam || issuer || 'Cuenta',
+      name: account || 'Usuario',
+      secret: secret.toUpperCase(),
+      digits: parseInt(url.searchParams.get('digits')) || 6,
+      period: parseInt(url.searchParams.get('period')) || 30,
+      algorithm: (url.searchParams.get('algorithm') || 'SHA1').toUpperCase()
     };
-  } catch (error) {
-    console.error('Error parseando otpauth URI:', error);
+  } catch (e) {
     return null;
   }
 }
 
-/**
- * Auto-completa el formulario con datos del QR
- * @param {Object} data - Datos parseados del QR
- */
-function autoFillFormFromQR(data) {
-  document.getElementById('account-name').value = data.name;
-  document.getElementById('account-platform').value = data.platform;
-  document.getElementById('secret-key').value = data.secret;
-  document.getElementById('digits').value = data.digits;
-  document.getElementById('period').value = data.period;
-  document.getElementById('algorithm').value = data.algorithm;
-}
-
-/**
- * Limpia el preview de captura
- */
-function clearCapturePreview() {
-  const capturePreview = document.getElementById('capture-preview');
-  const uploadPreview = document.getElementById('upload-preview');
-  const scanBtn = document.getElementById('scan-area-btn');
-
-  if (capturePreview) {
-    capturePreview.innerHTML = '';
-    capturePreview.classList.add('hidden');
+async function addAccountFromQr(data) {
+  // Check duplicate
+  if (state.accounts.some(a =>
+    a.platform.toLowerCase() === data.platform.toLowerCase() &&
+    a.name.toLowerCase() === data.name.toLowerCase()
+  )) {
+    alert('Esta cuenta ya existe');
+    resetQrUpload();
+    return;
   }
 
-  if (uploadPreview) {
-    uploadPreview.innerHTML = '';
-    uploadPreview.classList.add('hidden');
-  }
+  state.accounts.push({
+    ...data,
+    createdAt: new Date().toISOString()
+  });
 
-  if (scanBtn) {
-    scanBtn.classList.add('hidden');
-  }
-
-  appState.currentCaptureData = null;
-  appState.currentCaptureImage = null;
+  await saveAccounts();
+  closeModal();
+  render();
 }
 
-/**
- * Maneja la búsqueda de cuentas
- * @param {Event} e - Evento de input
- */
-function handleSearch(e) {
-  appState.searchQuery = e.target.value.trim();
-  const clearBtn = document.getElementById('clear-search');
+// Handle form
+async function handleSubmit(e) {
+  e.preventDefault();
 
-  if (appState.searchQuery) {
-    clearBtn.classList.remove('hidden');
-  } else {
-    clearBtn.classList.add('hidden');
+  const platform = document.getElementById('platform').value.trim();
+  const name = document.getElementById('account').value.trim();
+  const secret = document.getElementById('secret').value.trim().toUpperCase().replace(/\s/g, '');
+
+  if (!platform || !name || !secret) {
+    alert('Todos los campos son obligatorios');
+    return;
   }
 
-  // Deshabilitar throttle durante búsqueda para respuesta inmediata
-  appState.renderThrottle = false;
-  renderAccounts();
-}
-
-/**
- * Limpia la búsqueda
- */
-function clearSearch() {
-  const searchInput = document.getElementById('search-input');
-  searchInput.value = '';
-  appState.searchQuery = '';
-  document.getElementById('clear-search').classList.add('hidden');
-  renderAccounts();
-}
-
-/**
- * Ordena las cuentas según el criterio especificado
- * @param {Array} accounts - Array de cuentas a ordenar
- * @param {string} sortBy - Criterio de ordenamiento
- * @returns {Array} - Array ordenado
- */
-function sortAccounts(accounts, sortBy) {
-  const sorted = [...accounts];
-
-  switch (sortBy) {
-    case 'name-asc':
-      return sorted.sort((a, b) => a.name.localeCompare(b.name));
-    case 'name-desc':
-      return sorted.sort((a, b) => b.name.localeCompare(a.name));
-    case 'platform-asc':
-      return sorted.sort((a, b) => a.platform.localeCompare(b.platform));
-    case 'platform-desc':
-      return sorted.sort((a, b) => b.platform.localeCompare(a.platform));
-    case 'date-asc':
-      return sorted.sort((a, b) => {
-        const dateA = new Date(a.createdAt || 0);
-        const dateB = new Date(b.createdAt || 0);
-        return dateA - dateB;
-      });
-    case 'date-desc':
-      return sorted.sort((a, b) => {
-        const dateA = new Date(a.createdAt || 0);
-        const dateB = new Date(b.createdAt || 0);
-        return dateB - dateA;
-      });
-    default:
-      return sorted;
+  // Validate Base32
+  if (!/^[A-Z2-7]+=*$/.test(secret) || secret.length < 16) {
+    alert('La clave secreta no es valida');
+    return;
   }
+
+  // Check duplicate
+  if (state.accounts.some(a =>
+    a.platform.toLowerCase() === platform.toLowerCase() &&
+    a.name.toLowerCase() === name.toLowerCase()
+  )) {
+    alert('Esta cuenta ya existe');
+    return;
+  }
+
+  state.accounts.push({
+    platform,
+    name,
+    secret,
+    digits: 6,
+    period: 30,
+    algorithm: 'SHA1',
+    createdAt: new Date().toISOString()
+  });
+
+  await saveAccounts();
+  closeModal();
+  render();
 }
 
-/**
- * Carga la preferencia de ordenamiento
- */
-async function loadSortPreference() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(['sortBy'], (result) => {
-      if (result.sortBy) {
-        appState.sortBy = result.sortBy;
-        const sortSelect = document.getElementById('sort-select');
-        if (sortSelect) {
-          sortSelect.value = result.sortBy;
-        }
+// Settings
+function openSettings() {
+  document.querySelector('header').classList.add('hidden');
+  document.getElementById('main-view').classList.add('hidden');
+  document.getElementById('footer').classList.add('hidden');
+  document.getElementById('settings-view').classList.remove('hidden');
+  renderSettings();
+}
+
+function closeSettings() {
+  document.getElementById('settings-view').classList.add('hidden');
+  document.querySelector('header').classList.remove('hidden');
+  document.getElementById('main-view').classList.remove('hidden');
+  render();
+}
+
+function renderSettings() {
+  const list = document.getElementById('settings-list');
+
+  if (state.accounts.length === 0) {
+    list.innerHTML = '<p class="settings-empty">No hay cuentas</p>';
+    return;
+  }
+
+  list.innerHTML = state.accounts.map((acc, i) => `
+    <div class="settings-item">
+      <div class="settings-item-info">
+        <span class="settings-item-platform">${escapeHtml(acc.platform)}</span>
+        <span class="settings-item-account">${escapeHtml(acc.name)}</span>
+      </div>
+      <button class="delete-btn" data-index="${i}">Eliminar</button>
+    </div>
+  `).join('');
+
+  // Delete listeners
+  list.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const index = parseInt(btn.dataset.index);
+      const acc = state.accounts[index];
+      if (confirm(`Eliminar ${acc.platform}?`)) {
+        state.accounts.splice(index, 1);
+        await saveAccounts();
+        renderSettings();
       }
-      resolve();
     });
   });
 }
 
-/**
- * Guarda la preferencia de ordenamiento
- * @param {string} sortBy - Criterio de ordenamiento
- */
-async function saveSortPreference(sortBy) {
-  return new Promise((resolve) => {
-    chrome.storage.local.set({ sortBy }, () => {
-      resolve();
-    });
+// Auto-update
+function startAutoUpdate() {
+  if (state.updateInterval) clearInterval(state.updateInterval);
+  state.updateInterval = setInterval(updateTimers, 1000);
+}
+
+// Update only timers and codes
+function updateTimers() {
+  document.querySelectorAll('.account-card').forEach(card => {
+    const index = parseInt(card.dataset.index);
+    const account = state.accounts[index];
+    if (!account) return;
+
+    const code = generateTOTP(account);
+    const period = account.period || 30;
+    const timeLeft = getTimeRemaining(period);
+    const progress = (timeLeft / period) * 100;
+    const circumference = 2 * Math.PI * 18;
+    const offset = circumference - (progress / 100) * circumference;
+
+    // Update timer
+    const timerProgress = card.querySelector('.timer-progress');
+    const timerText = card.querySelector('.timer-text');
+    if (timerProgress && timerText) {
+      timerProgress.setAttribute('stroke-dashoffset', offset);
+      timerProgress.classList.remove('warning', 'danger');
+      if (timeLeft <= 5) timerProgress.classList.add('danger');
+      else if (timeLeft <= 10) timerProgress.classList.add('warning');
+      timerText.textContent = timeLeft;
+    }
+
+    // Update code
+    const codeEl = card.querySelector('.code');
+    if (codeEl) {
+      codeEl.textContent = formatCode(code);
+    }
   });
 }
 
-/**
- * Maneja el cambio de ordenamiento
- * @param {Event} e - Evento de change
- */
-async function handleSort(e) {
-  appState.sortBy = e.target.value;
-  await saveSortPreference(appState.sortBy);
-  renderAccounts();
-}
-
-/**
- * Valida que una clave secreta sea válida en Base32
- * @param {string} secret - Clave a validar
- * @returns {Object} - {valid: boolean, error: string}
- */
-function validateSecret(secret) {
-  const cleaned = stripSpaces(secret).toUpperCase();
-
-  // Verificar que no esté vacía
-  if (!cleaned) {
-    return { valid: false, error: 'La clave secreta no puede estar vacía' };
-  }
-
-  // Verificar caracteres válidos en Base32 (A-Z, 2-7, =)
-  const base32Regex = /^[A-Z2-7=]+$/;
-  if (!base32Regex.test(cleaned)) {
-    return { valid: false, error: 'La clave debe contener solo caracteres válidos de Base32 (A-Z, 2-7)' };
-  }
-
-  // Verificar longitud mínima (generalmente 16 caracteres)
-  if (cleaned.replace(/=/g, '').length < 16) {
-    return { valid: false, error: 'La clave es demasiado corta (mínimo 16 caracteres)' };
-  }
-
-  // Intentar decodificar con OTPAuth
-  try {
-    OTPAuth.Secret.fromBase32(cleaned);
-    return { valid: true, error: null };
-  } catch (error) {
-    return { valid: false, error: 'La clave secreta no es válida en formato Base32' };
-  }
-}
-
-/**
- * Valida que el nombre de cuenta no esté duplicado
- * @param {string} name - Nombre a validar
- * @param {string} platform - Plataforma a validar
- * @returns {boolean} - true si ya existe
- */
-function isDuplicateAccount(name, platform) {
-  return appState.accounts.some(
-    account => account.name.toLowerCase() === name.toLowerCase() &&
-               account.platform.toLowerCase() === platform.toLowerCase()
-  );
-}
-
-// Limpiar interval al cerrar el popup
+// Cleanup on close
 window.addEventListener('beforeunload', () => {
-  if (appState.updateInterval) {
-    clearInterval(appState.updateInterval);
-  }
+  if (state.updateInterval) clearInterval(state.updateInterval);
 });
