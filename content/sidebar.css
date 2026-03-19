@@ -1,27 +1,26 @@
-/* TOTP Sidebar - Estilos del sidebar lateral */
+/* TOTP Sidebar - Diseño minimalista */
 
 #totp-sidebar-container {
-  --totp-primary: #2563eb;
-  --totp-primary-hover: #1d4ed8;
-  --totp-success: #10b981;
-  --totp-danger: #ef4444;
-  --totp-warning: #f59e0b;
+  --totp-primary: #6366f1;
+  --totp-primary-soft: #818cf8;
+  --totp-success: #22c55e;
+  --totp-danger: #f87171;
   --totp-bg: #ffffff;
-  --totp-bg-secondary: #f8fafc;
-  --totp-text: #1e293b;
-  --totp-text-secondary: #64748b;
+  --totp-bg-hover: #f8fafc;
+  --totp-text: #334155;
+  --totp-text-muted: #94a3b8;
   --totp-border: #e2e8f0;
-  --totp-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  --totp-code: #1e293b;
 
   position: fixed;
   top: 0;
   right: 0;
-  width: 320px;
+  width: 300px;
   height: 100vh;
   z-index: 2147483647;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   transform: translateX(100%);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s ease;
   pointer-events: none;
 }
 
@@ -36,14 +35,14 @@
   padding: 0;
 }
 
-/* Toggle Button */
+/* Toggle Button - Minimalista */
 .totp-toggle-btn {
   position: fixed;
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  width: 40px;
-  height: 48px;
+  width: 32px;
+  height: 64px;
   background: var(--totp-primary);
   border: none;
   border-radius: 8px 0 0 8px;
@@ -51,25 +50,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: -2px 0 12px rgba(37, 99, 235, 0.3);
+  box-shadow: -2px 0 8px rgba(99, 102, 241, 0.2);
   transition: all 0.2s ease;
   z-index: 2147483646;
   pointer-events: auto;
+  opacity: 0.9;
 }
 
 .totp-toggle-btn:hover {
-  width: 48px;
-  background: var(--totp-primary-hover);
+  width: 36px;
+  opacity: 1;
 }
 
 .totp-toggle-btn svg {
-  width: 24px;
-  height: 24px;
-  fill: white;
+  width: 18px;
+  height: 18px;
+  stroke: white;
+  stroke-width: 2;
+  fill: none;
 }
 
 #totp-sidebar-container.open .totp-toggle-btn {
-  right: 320px;
+  right: 300px;
+  background: var(--totp-text-muted);
 }
 
 /* Sidebar Panel */
@@ -77,59 +80,57 @@
   width: 100%;
   height: 100%;
   background: var(--totp-bg);
-  box-shadow: var(--totp-shadow);
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
-/* Header */
+/* Header - Simple */
 .totp-header {
-  background: var(--totp-primary);
-  color: white;
-  padding: 16px 20px;
+  padding: 20px;
+  border-bottom: 1px solid var(--totp-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-shrink: 0;
 }
 
 .totp-header h1 {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
+  color: var(--totp-text);
   letter-spacing: -0.01em;
 }
 
 .totp-close-btn {
-  background: rgba(255, 255, 255, 0.15);
+  background: transparent;
   border: none;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  transition: background 0.15s;
+  color: var(--totp-text-muted);
 }
 
 .totp-close-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--totp-bg-hover);
+  color: var(--totp-text);
 }
 
 .totp-close-btn svg {
-  width: 18px;
-  height: 18px;
-  stroke: white;
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
   stroke-width: 2;
 }
 
-/* Search */
+/* Search - Sutil */
 .totp-search {
   padding: 12px 16px;
-  background: var(--totp-bg-secondary);
   border-bottom: 1px solid var(--totp-border);
-  flex-shrink: 0;
 }
 
 .totp-search-input {
@@ -141,16 +142,15 @@
   background: var(--totp-bg);
   color: var(--totp-text);
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.15s;
 }
 
 .totp-search-input:focus {
-  border-color: var(--totp-primary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: var(--totp-primary-soft);
 }
 
 .totp-search-input::placeholder {
-  color: var(--totp-text-secondary);
+  color: var(--totp-text-muted);
 }
 
 /* Accounts List */
@@ -161,7 +161,7 @@
 }
 
 .totp-accounts::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .totp-accounts::-webkit-scrollbar-track {
@@ -170,44 +170,39 @@
 
 .totp-accounts::-webkit-scrollbar-thumb {
   background: var(--totp-border);
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
-.totp-accounts::-webkit-scrollbar-thumb:hover {
-  background: var(--totp-text-secondary);
-}
-
-/* Account Card */
+/* Account Card - Minimalista */
 .totp-card {
   background: var(--totp-bg);
   border: 1px solid var(--totp-border);
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 14px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   position: relative;
 }
 
 .totp-card:hover {
-  border-color: var(--totp-primary);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+  background: var(--totp-bg-hover);
+  border-color: var(--totp-primary-soft);
 }
 
 .totp-card:active {
-  transform: scale(0.98);
+  transform: scale(0.99);
 }
 
 .totp-card.copied {
   border-color: var(--totp-success);
-  background: linear-gradient(to right, rgba(16, 185, 129, 0.05), transparent);
 }
 
 .totp-card-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .totp-card-info {
@@ -216,7 +211,7 @@
 }
 
 .totp-card-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--totp-text);
   margin-bottom: 2px;
@@ -226,20 +221,17 @@
 }
 
 .totp-card-platform {
-  font-size: 12px;
-  color: var(--totp-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 11px;
+  color: var(--totp-text-muted);
 }
 
-/* Timer Circle */
+/* Timer - Compacto */
 .totp-timer {
   position: relative;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
-  margin-left: 12px;
+  margin-left: 10px;
 }
 
 .totp-timer-circle {
@@ -249,19 +241,19 @@
 .totp-timer-bg {
   fill: none;
   stroke: var(--totp-border);
-  stroke-width: 3;
+  stroke-width: 2.5;
 }
 
 .totp-timer-progress {
   fill: none;
-  stroke: var(--totp-primary);
-  stroke-width: 3;
+  stroke: var(--totp-primary-soft);
+  stroke-width: 2.5;
   stroke-linecap: round;
-  transition: stroke-dashoffset 1s linear, stroke 0.3s;
+  transition: stroke-dashoffset 1s linear, stroke 0.2s;
 }
 
 .totp-timer-progress.warning {
-  stroke: var(--totp-warning);
+  stroke: #fbbf24;
 }
 
 .totp-timer-progress.danger {
@@ -273,77 +265,78 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
-  color: var(--totp-text);
+  color: var(--totp-text-muted);
 }
 
-/* Code Display */
+/* Code Display - Prominente pero limpio */
 .totp-code-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .totp-code {
   flex: 1;
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 700;
-  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
-  color: var(--totp-primary);
-  letter-spacing: 3px;
-  background: var(--totp-bg-secondary);
-  padding: 8px 12px;
-  border-radius: 8px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  color: var(--totp-code);
+  letter-spacing: 2px;
   text-align: center;
+  padding: 6px 0;
 }
 
 .totp-copy-btn {
-  background: var(--totp-primary);
-  color: white;
-  border: none;
-  width: 44px;
-  height: 44px;
+  background: var(--totp-bg-hover);
+  color: var(--totp-text-muted);
+  border: 1px solid var(--totp-border);
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all 0.15s;
   flex-shrink: 0;
 }
 
 .totp-copy-btn:hover {
-  background: var(--totp-primary-hover);
-  transform: scale(1.05);
+  background: var(--totp-primary);
+  border-color: var(--totp-primary);
+  color: white;
 }
 
 .totp-copy-btn.copied {
   background: var(--totp-success);
+  border-color: var(--totp-success);
+  color: white;
 }
 
 .totp-copy-btn svg {
-  width: 20px;
-  height: 20px;
-  stroke: white;
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
   stroke-width: 2;
   fill: none;
 }
 
-/* Copy Feedback Toast */
+/* Toast - Discreto */
 .totp-toast {
   position: fixed;
-  bottom: 20px;
+  bottom: 16px;
   left: 50%;
-  transform: translateX(-50%) translateY(100px);
+  transform: translateX(-50%) translateY(60px);
   background: var(--totp-text);
   color: white;
-  padding: 12px 20px;
-  border-radius: 8px;
-  font-size: 13px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 500;
   opacity: 0;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   z-index: 2147483647;
   pointer-events: none;
 }
@@ -361,19 +354,19 @@
   justify-content: center;
   padding: 40px 20px;
   text-align: center;
-  color: var(--totp-text-secondary);
+  color: var(--totp-text-muted);
 }
 
 .totp-empty svg {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   stroke: var(--totp-border);
   stroke-width: 1.5;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .totp-empty p {
-  font-size: 14px;
+  font-size: 13px;
   margin-bottom: 16px;
 }
 
@@ -381,24 +374,22 @@
   background: var(--totp-primary);
   color: white;
   border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 13px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: opacity 0.15s;
 }
 
 .totp-empty-btn:hover {
-  background: var(--totp-primary-hover);
+  opacity: 0.9;
 }
 
 /* Footer */
 .totp-footer {
   padding: 12px 16px;
   border-top: 1px solid var(--totp-border);
-  background: var(--totp-bg-secondary);
-  flex-shrink: 0;
 }
 
 .totp-add-btn {
@@ -406,36 +397,36 @@
   background: var(--totp-primary);
   color: white;
   border: none;
-  padding: 12px;
+  padding: 10px;
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: opacity 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .totp-add-btn:hover {
-  background: var(--totp-primary-hover);
+  opacity: 0.9;
 }
 
 .totp-add-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   stroke: white;
   stroke-width: 2;
 }
 
-/* Delete Button */
+/* Delete Button - Muy discreto */
 .totp-delete-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
+  top: 10px;
+  right: 10px;
+  width: 18px;
+  height: 18px;
   background: transparent;
   border: none;
   border-radius: 4px;
@@ -444,38 +435,42 @@
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
 .totp-card:hover .totp-delete-btn {
-  opacity: 1;
+  opacity: 0.4;
 }
 
 .totp-delete-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
+  opacity: 1 !important;
 }
 
 .totp-delete-btn svg {
-  width: 14px;
-  height: 14px;
-  stroke: var(--totp-danger);
+  width: 10px;
+  height: 10px;
+  stroke: var(--totp-text-muted);
   stroke-width: 2;
+}
+
+.totp-delete-btn:hover svg {
+  stroke: var(--totp-danger);
+}
+
+.totp-delete-btn.confirm {
+  opacity: 1 !important;
+  background: var(--totp-danger);
+  border-radius: 4px;
+}
+
+.totp-delete-btn.confirm svg {
+  stroke: white;
 }
 
 /* No results */
 .totp-no-results {
   text-align: center;
   padding: 30px 20px;
-  color: var(--totp-text-secondary);
-  font-size: 13px;
-}
-
-/* Animations */
-@keyframes totp-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-.totp-card.refreshing .totp-code {
-  animation: totp-pulse 0.5s ease-in-out;
+  color: var(--totp-text-muted);
+  font-size: 12px;
 }

@@ -309,12 +309,12 @@ function setupAccountButtons() {
     });
   });
 
-  // Botones de eliminar
+  // Botones de eliminar (confirmacion en dos pasos)
   document.querySelectorAll('.account-delete').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const index = parseInt(btn.dataset.index);
-      deleteAccount(index);
+      handleDeleteClick(btn, index);
     });
   });
 
@@ -373,18 +373,38 @@ async function copyToClipboard(index) {
 }
 
 /**
+ * Maneja el clic en el boton eliminar (confirmacion en dos pasos)
+ * @param {HTMLElement} btn - Boton de eliminar
+ * @param {number} index - Indice de la cuenta
+ */
+function handleDeleteClick(btn, index) {
+  // Si ya esta en modo confirmar, eliminar
+  if (btn.classList.contains('confirm')) {
+    deleteAccount(index);
+    return;
+  }
+
+  // Cambiar a modo confirmar
+  btn.classList.add('confirm');
+  btn.textContent = 'Confirmar';
+
+  // Volver al estado original despues de 3 segundos
+  setTimeout(() => {
+    if (btn.classList.contains('confirm')) {
+      btn.classList.remove('confirm');
+      btn.textContent = 'Eliminar';
+    }
+  }, 3000);
+}
+
+/**
  * Elimina una cuenta
- * @param {number} index - Índice de la cuenta
+ * @param {number} index - Indice de la cuenta
  */
 async function deleteAccount(index) {
-  const account = appState.accounts[index];
-  const confirmed = confirm(`¿Eliminar la cuenta de ${account.name} (${account.platform})?`);
-
-  if (confirmed) {
-    appState.accounts.splice(index, 1);
-    await saveAccounts();
-    renderAccounts();
-  }
+  appState.accounts.splice(index, 1);
+  await saveAccounts();
+  renderAccounts();
 }
 
 /**

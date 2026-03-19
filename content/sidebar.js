@@ -220,12 +220,12 @@
       });
     });
 
-    // Botón eliminar
+    // Boton eliminar (confirmacion en dos pasos)
     document.querySelectorAll('.totp-delete-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const index = parseInt(btn.dataset.index);
-        deleteAccount(index);
+        handleDeleteClick(btn, index);
       });
     });
   }
@@ -288,16 +288,45 @@
     setTimeout(() => toast.classList.remove('show'), 2000);
   }
 
+  // Manejar clic en boton eliminar (confirmacion en dos pasos)
+  function handleDeleteClick(btn, index) {
+    // Si ya esta en modo confirmar, eliminar
+    if (btn.classList.contains('confirm')) {
+      deleteAccount(index);
+      return;
+    }
+
+    // Cambiar a modo confirmar
+    btn.classList.add('confirm');
+    btn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M5 12h14"/>
+      </svg>
+    `;
+    btn.title = 'Confirmar eliminacion';
+
+    // Volver al estado original despues de 3 segundos
+    setTimeout(() => {
+      if (btn && btn.classList.contains('confirm')) {
+        btn.classList.remove('confirm');
+        btn.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        `;
+        btn.title = 'Eliminar';
+      }
+    }, 3000);
+  }
+
   // Eliminar cuenta
   async function deleteAccount(index) {
     const account = state.accounts[index];
     if (!account) return;
 
-    if (confirm(`Eliminar cuenta "${account.name}" de ${account.platform}?`)) {
-      state.accounts.splice(index, 1);
-      await chrome.storage.local.set({ accounts: state.accounts });
-      renderAccounts();
-    }
+    state.accounts.splice(index, 1);
+    await chrome.storage.local.set({ accounts: state.accounts });
+    renderAccounts();
   }
 
   // Abrir popup de la extensión
