@@ -1,35 +1,46 @@
 /**
  * TOTP Authenticator - Background Service Worker
+ * Cross-browser compatible (Chrome, Safari, Firefox)
  */
 
-// Al instalar la extension
-chrome.runtime.onInstalled.addListener((details) => {
+// Detect browser APIs
+const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+const isChrome = typeof chrome !== 'undefined' && !!chrome.runtime && !browser;
+const hasSidePanel = isChrome && typeof chrome.sidePanel !== 'undefined';
+
+// On install
+browserAPI.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     console.log('TOTP Authenticator instalado');
-    chrome.storage.local.get(['accounts'], (result) => {
+    browserAPI.storage.local.get(['accounts'], (result) => {
       if (!result.accounts) {
-        chrome.storage.local.set({ accounts: [] });
+        browserAPI.storage.local.set({ accounts: [] });
       }
     });
   }
 });
 
-// Abrir side panel al hacer clic en el icono de la extension
-chrome.action.onClicked.addListener((tab) => {
-  chrome.sidePanel.open({ windowId: tab.windowId });
-});
+// Handle action click - Chrome with SidePanel vs Safari/Firefox with popup
+if (hasSidePanel) {
+  // Chrome: Open side panel
+  chrome.action.onClicked.addListener((tab) => {
+    chrome.sidePanel.open({ windowId: tab.windowId });
+  });
 
-// Configurar side panel para que se abra en todas las paginas
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  // Configure side panel behavior
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+}
+// Note: For Safari/Firefox, the popup is configured in manifest.json
 
-// Manejar mensajes del sidepanel
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+// Handle messages from popup/sidepanel
+browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'captureScreen') {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    browserAPI.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]) {
-        chrome.tabs.captureVisibleTab(tabs[0].windowId, { format: 'png' }, (dataUrl) => {
-          if (chrome.runtime.lastError) {
-            sendResponse({ error: chrome.runtime.lastError.message });
+        browserAPI.tabs.captureVisibleTab(tabs[0].windowId, { format: 'png' }, (dataUrl) => {
+          const lastError = browserAPI.runtime.lastError;
+          if (lastError) {
+            sendResponse({ error: lastError.message });
           } else {
             sendResponse({ dataUrl });
           }
@@ -38,6 +49,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({ error: 'No hay pestana activa' });
       }
     });
-    return true; // Mantener el canal abierto para respuesta asincrona
+    return true; // Keep channel open for async response
   }
 });
