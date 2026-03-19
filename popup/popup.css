@@ -160,11 +160,21 @@ header h1 {
   border: 1px solid var(--border-color);
   transition: all 0.2s ease;
   cursor: pointer;
+  position: relative;
 }
 
 .account-card:hover {
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  border-color: var(--primary-color);
+}
+
+.account-card:active {
+  transform: scale(0.98);
+}
+
+.account-card.copied {
+  border-color: var(--success-color);
+  background: linear-gradient(to right, rgba(16, 185, 129, 0.05), transparent);
 }
 
 .account-header {
@@ -212,11 +222,16 @@ header h1 {
 }
 
 .code-display {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
-  letter-spacing: 4px;
+  letter-spacing: 3px;
   color: var(--primary-color);
-  font-family: 'Courier New', monospace;
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  flex: 1;
+  text-align: center;
+  background: var(--background);
+  padding: 8px 12px;
+  border-radius: 6px;
 }
 
 .copy-btn {
@@ -239,11 +254,64 @@ header h1 {
   background: var(--success-color);
 }
 
+/* Timer Circle */
+.timer-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.timer-circle {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.timer-circle svg {
+  transform: rotate(-90deg);
+}
+
+.timer-circle-bg {
+  fill: none;
+  stroke: var(--border-color);
+  stroke-width: 3;
+}
+
+.timer-circle-progress {
+  fill: none;
+  stroke: var(--primary-color);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear, stroke 0.3s ease;
+}
+
+.timer-circle-progress.warning {
+  stroke: var(--warning-color);
+}
+
+.timer-circle-progress.danger {
+  stroke: var(--danger-color);
+}
+
+.timer-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 .timer-bar-container {
+  flex: 1;
   height: 4px;
   background: var(--border-color);
   border-radius: 2px;
   overflow: hidden;
+  margin-left: 12px;
 }
 
 .timer-bar {

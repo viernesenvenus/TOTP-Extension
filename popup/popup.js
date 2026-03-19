@@ -113,9 +113,15 @@ function renderAccounts() {
     // Obtener el índice real en el array completo
     const realIndex = appState.accounts.indexOf(account);
     const code = generateTOTP(account);
-    const timeRemaining = getTimeRemaining(account.period || 30);
-    const progress = (timeRemaining / (account.period || 30)) * 100;
-    const isWarning = timeRemaining <= 10;
+    const period = account.period || 30;
+    const timeRemaining = getTimeRemaining(period);
+    const progress = (timeRemaining / period) * 100;
+    const circumference = 2 * Math.PI * 18;
+    const offset = circumference - (progress / 100) * circumference;
+
+    let timerClass = '';
+    if (timeRemaining <= 5) timerClass = 'danger';
+    else if (timeRemaining <= 10) timerClass = 'warning';
 
     return `
       <div class="account-card" data-index="${realIndex}" role="listitem" tabindex="0" aria-label="Cuenta ${escapeHtml(account.name)} en ${escapeHtml(account.platform)}">
@@ -129,13 +135,24 @@ function renderAccounts() {
           </button>
         </div>
         <div class="code-container">
-          <div class="code-display" aria-label="Código TOTP: ${code.replace(/\s/g, '')}">${formatCode(code)}</div>
-          <button class="copy-btn" data-index="${realIndex}" aria-label="Copiar código de ${escapeHtml(account.name)}">
+          <div class="code-display" aria-label="Codigo TOTP: ${code.replace(/\s/g, '')}">${formatCode(code)}</div>
+          <button class="copy-btn" data-index="${realIndex}" aria-label="Copiar codigo de ${escapeHtml(account.name)}">
             Copiar
           </button>
         </div>
-        <div class="timer-bar-container" role="progressbar" aria-valuenow="${progress}" aria-valuemin="0" aria-valuemax="100" aria-label="Tiempo restante: ${timeRemaining} segundos">
-          <div class="timer-bar ${isWarning ? 'warning' : ''}" style="width: ${progress}%"></div>
+        <div class="timer-container">
+          <div class="timer-circle" role="progressbar" aria-valuenow="${progress}" aria-valuemin="0" aria-valuemax="100" aria-label="Tiempo restante: ${timeRemaining} segundos">
+            <svg width="48" height="48" viewBox="0 0 48 48">
+              <circle class="timer-circle-bg" cx="24" cy="24" r="18"/>
+              <circle class="timer-circle-progress ${timerClass}" cx="24" cy="24" r="18"
+                stroke-dasharray="${circumference}"
+                stroke-dashoffset="${offset}"/>
+            </svg>
+            <span class="timer-text">${timeRemaining}s</span>
+          </div>
+          <div class="timer-bar-container">
+            <div class="timer-bar ${timerClass}" style="width: ${progress}%"></div>
+          </div>
         </div>
       </div>
     `;
@@ -330,7 +347,14 @@ async function copyToClipboard(index) {
   try {
     await navigator.clipboard.writeText(code.replace(/\s/g, ''));
 
-    // Feedback visual
+    // Feedback visual en tarjeta
+    const card = document.querySelector(`.account-card[data-index="${index}"]`);
+    if (card) {
+      card.classList.add('copied');
+      setTimeout(() => card.classList.remove('copied'), 2000);
+    }
+
+    // Feedback visual en boton
     const btn = document.querySelector(`.copy-btn[data-index="${index}"]`);
     if (btn) {
       const originalText = btn.textContent;
@@ -344,7 +368,7 @@ async function copyToClipboard(index) {
     }
   } catch (error) {
     console.error('Error copiando al portapapeles:', error);
-    alert('No se pudo copiar el código');
+    alert('No se pudo copiar el codigo');
   }
 }
 
