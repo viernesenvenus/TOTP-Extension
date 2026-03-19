@@ -7,6 +7,8 @@
 
 Extensión de navegador (Chrome/Safari) que funciona como espejo de tu autenticador móvil, permitiéndote copiar códigos MFA directamente sin necesidad de desbloquear tu celular.
 
+[![image.png](https://i.postimg.cc/T3wBf185/image.png)](https://postimg.cc/WhB5721s)
+
 **[Ver en GitHub](https://github.com/asther0/TOTP-Extension)** | **[Reportar Bug](https://github.com/asther0/TOTP-Extension/issues)** | **[Solicitar Feature](https://github.com/asther0/TOTP-Extension/issues)**
 
 ## ✨ Características
