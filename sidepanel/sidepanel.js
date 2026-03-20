@@ -273,8 +273,16 @@ async function captureScreen() {
     </div>
   `;
 
+  // Timeout de 10 segundos
+  const timeoutId = setTimeout(() => {
+    showError(status, 'Tiempo de espera agotado', 'La captura está tardando demasiado. Cierra otras pestañas e intenta nuevamente.');
+    captureBtn.disabled = false;
+    uploadBtn.disabled = false;
+  }, 10000);
+
   try {
     const response = await chrome.runtime.sendMessage({ action: 'captureScreen' });
+    clearTimeout(timeoutId);
 
     if (response.error) {
       showError(status, 'Error de captura', response.error);
@@ -305,6 +313,7 @@ async function captureScreen() {
       uploadBtn.disabled = false;
     };
   } catch (e) {
+    clearTimeout(timeoutId);
     showError(status, 'Error inesperado', 'No se pudo capturar la pantalla. Asegúrate de tener permisos activos.');
     captureBtn.disabled = false;
     uploadBtn.disabled = false;

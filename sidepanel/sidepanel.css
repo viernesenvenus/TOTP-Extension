@@ -576,6 +576,16 @@ footer {
   box-shadow: 0 2px 6px rgba(99, 102, 241, 0.2);
 }
 
+.btn-secondary svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.3s ease;
+}
+
+.btn-secondary:hover svg {
+  transform: rotate(180deg);
+}
+
 .qr-preview {
   text-align: center;
   animation: fadeIn 0.3s ease;
