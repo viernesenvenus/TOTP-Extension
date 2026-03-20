@@ -205,6 +205,22 @@ function setupListeners() {
   document.getElementById('settings-btn').addEventListener('click', openSettings);
   document.getElementById('back-btn').addEventListener('click', closeSettings);
 
+  // Export/Import
+  document.getElementById('export-btn').addEventListener('click', exportAccounts);
+  document.getElementById('import-btn').addEventListener('click', () =>
+    document.getElementById('import-file').click()
+  );
+  document.getElementById('import-file').addEventListener('change', handleImportFile);
+
+  // Import modal
+  document.getElementById('close-import-modal').addEventListener('click', closeImportModal);
+  document.getElementById('import-modal').addEventListener('click', e => {
+    if (e.target.id === 'import-modal') closeImportModal();
+  });
+  document.getElementById('merge-btn').addEventListener('click', () => importAccounts('merge'));
+  document.getElementById('replace-btn').addEventListener('click', () => importAccounts('replace'));
+  document.getElementById('cancel-import-btn').addEventListener('click', closeImportModal);
+
   // Escuchar cambios en storage
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.accounts) {
@@ -583,6 +599,311 @@ function updateTimers() {
       codeEl.textContent = formatCode(code);
     }
   });
+}
+
+// Export/Import Functions
+let importData = null;
+
+async function exportAccounts() {
+  const btn = document.getElementById('export-btn');
+  const originalContent = btn.innerHTML;
+
+  if (state.accounts.length === 0) {
+    alert('No hay cuentas para exportar');
+    return;
+  }
+
+  try {
+    // Mostrar loading
+    btn.disabled = true;
+    btn.innerHTML = `
+      <div class="loading-spinner" style="width: 14px; height: 14px; border-width: 2px;"></div>
+      <span>Exportando...</span>
+    `;
+
+    // Crear JSON con metadata
+    const exportData = {
+      version: '1.0.0',
+      exportDate: new Date().toISOString(),
+      accounts: state.accounts
+    };
+
+    // Crear blob y descargar
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `totp-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // Mostrar success
+    btn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M20 6L9 17l-5-5"/>
+      </svg>
+      <span>Exportado!</span>
+    `;
+
+    // Volver a estado normal
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.innerHTML = originalContent;
+    }, 2000);
+  } catch (e) {
+    alert('Error al exportar: ' + e.message);
+    btn.disabled = false;
+    btn.innerHTML = originalContent;
+  }
+}
+
+async function handleImportFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const status = document.getElementById('import-status');
+  const options = document.getElementById('import-options');
+
+  // Abrir modal
+  document.getElementById('import-modal').classList.remove('hidden');
+
+  // Mostrar loading
+  options.classList.add('hidden');
+  status.className = 'import-status loading';
+  status.innerHTML = `
+    <div class="status-icon loading-spinner"></div>
+    <div class="status-content">
+      <strong>Cargando archivo...</strong>
+      <small>Validando datos</small>
+    </div>
+  `;
+
+  try {
+    // Leer archivo
+    const text = await readFileAsText(file);
+    const data = JSON.parse(text);
+
+    // Validar estructura
+    const validation = validateImportData(data);
+    if (!validation.valid) {
+      status.className = 'import-status error';
+      status.innerHTML = `
+        <div class="status-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 8v4m0 4h.01"/>
+          </svg>
+        </div>
+        <div class="status-content">
+          <strong>Archivo inválido</strong>
+          <small>${escapeHtml(validation.error)}</small>
+        </div>
+      `;
+      return;
+    }
+
+    // Detectar duplicados
+    const accounts = data.accounts;
+    const duplicates = detectDuplicates(accounts);
+
+    // Guardar data temporalmente
+    importData = { accounts, duplicates };
+
+    // Mostrar success y opciones
+    status.className = 'import-status success';
+    status.innerHTML = `
+      <div class="status-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
+      </div>
+      <div class="status-content">
+        <strong>Archivo válido</strong>
+        <small>${accounts.length} cuentas detectadas</small>
+      </div>
+    `;
+
+    // Actualizar resumen
+    document.getElementById('import-count').textContent = accounts.length;
+    if (duplicates.length > 0) {
+      document.getElementById('import-duplicates').textContent = duplicates.length;
+      document.getElementById('import-duplicates-text').classList.remove('hidden');
+    } else {
+      document.getElementById('import-duplicates-text').classList.add('hidden');
+    }
+
+    options.classList.remove('hidden');
+  } catch (e) {
+    status.className = 'import-status error';
+    status.innerHTML = `
+      <div class="status-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 8v4m0 4h.01"/>
+        </svg>
+      </div>
+      <div class="status-content">
+        <strong>Error al leer archivo</strong>
+        <small>${escapeHtml(e.message)}</small>
+      </div>
+    `;
+  }
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = e => reject(new Error('Error al leer archivo'));
+    reader.readAsText(file);
+  });
+}
+
+function validateImportData(data) {
+  // Validar JSON válido con campo accounts
+  if (!data || typeof data !== 'object') {
+    return { valid: false, error: 'Archivo JSON inválido' };
+  }
+
+  if (!data.accounts || !Array.isArray(data.accounts)) {
+    return { valid: false, error: 'Formato incorrecto: falta campo "accounts"' };
+  }
+
+  if (data.accounts.length === 0) {
+    return { valid: false, error: 'El archivo no contiene cuentas' };
+  }
+
+  // Validar cada cuenta
+  for (let i = 0; i < data.accounts.length; i++) {
+    const acc = data.accounts[i];
+
+    if (!acc.platform || typeof acc.platform !== 'string') {
+      return { valid: false, error: `Cuenta ${i + 1}: falta "platform"` };
+    }
+
+    if (!acc.name || typeof acc.name !== 'string') {
+      return { valid: false, error: `Cuenta ${i + 1}: falta "name"` };
+    }
+
+    if (!acc.secret || typeof acc.secret !== 'string') {
+      return { valid: false, error: `Cuenta ${i + 1}: falta "secret"` };
+    }
+
+    // Validar Base32
+    if (!/^[A-Z2-7]+=*$/.test(acc.secret)) {
+      return { valid: false, error: `Cuenta ${i + 1}: secret inválido (debe ser Base32)` };
+    }
+
+    // Validar digits (opcional)
+    if (acc.digits !== undefined) {
+      const digits = parseInt(acc.digits);
+      if (isNaN(digits) || digits < 6 || digits > 8) {
+        return { valid: false, error: `Cuenta ${i + 1}: digits debe ser 6, 7 u 8` };
+      }
+    }
+
+    // Validar period (opcional)
+    if (acc.period !== undefined) {
+      const period = parseInt(acc.period);
+      if (isNaN(period) || period < 10 || period > 120) {
+        return { valid: false, error: `Cuenta ${i + 1}: period debe estar entre 10 y 120` };
+      }
+    }
+
+    // Validar algorithm (opcional)
+    if (acc.algorithm !== undefined) {
+      const validAlgorithms = ['SHA1', 'SHA256', 'SHA512'];
+      if (!validAlgorithms.includes(acc.algorithm.toUpperCase())) {
+        return { valid: false, error: `Cuenta ${i + 1}: algorithm debe ser SHA1, SHA256 o SHA512` };
+      }
+    }
+  }
+
+  return { valid: true };
+}
+
+function detectDuplicates(accounts) {
+  const duplicateIndices = [];
+
+  for (let i = 0; i < accounts.length; i++) {
+    const acc = accounts[i];
+    const isDuplicate = state.accounts.some(existing =>
+      existing.platform.toLowerCase() === acc.platform.toLowerCase() &&
+      existing.name.toLowerCase() === acc.name.toLowerCase()
+    );
+
+    if (isDuplicate) {
+      duplicateIndices.push(i);
+    }
+  }
+
+  return duplicateIndices;
+}
+
+async function importAccounts(mode) {
+  if (!importData) return;
+
+  const { accounts, duplicates } = importData;
+
+  if (mode === 'replace') {
+    // Confirmar con dialog nativo
+    const confirmed = confirm(
+      '⚠️ ADVERTENCIA: Esta acción eliminará todas tus cuentas actuales y las reemplazará con las del archivo.\n\n' +
+      `Cuentas actuales: ${state.accounts.length}\n` +
+      `Cuentas nuevas: ${accounts.length}\n\n` +
+      '¿Estás seguro de continuar?'
+    );
+
+    if (!confirmed) return;
+
+    // Reemplazar todas
+    state.accounts = accounts.map(acc => ({
+      platform: acc.platform,
+      name: acc.name,
+      secret: acc.secret.toUpperCase().replace(/\s/g, ''),
+      digits: acc.digits || 6,
+      period: acc.period || 30,
+      algorithm: acc.algorithm ? acc.algorithm.toUpperCase() : 'SHA1',
+      createdAt: acc.createdAt || new Date().toISOString()
+    }));
+  } else {
+    // Merge: agregar solo nuevas (omitir duplicadas)
+    const newAccounts = accounts.filter((acc, i) => !duplicates.includes(i));
+
+    if (newAccounts.length === 0) {
+      alert('No hay cuentas nuevas para agregar. Todas ya existen.');
+      return;
+    }
+
+    // Agregar cuentas nuevas
+    newAccounts.forEach(acc => {
+      state.accounts.push({
+        platform: acc.platform,
+        name: acc.name,
+        secret: acc.secret.toUpperCase().replace(/\s/g, ''),
+        digits: acc.digits || 6,
+        period: acc.period || 30,
+        algorithm: acc.algorithm ? acc.algorithm.toUpperCase() : 'SHA1',
+        createdAt: acc.createdAt || new Date().toISOString()
+      });
+    });
+  }
+
+  // Guardar y actualizar UI
+  await saveAccounts();
+  closeImportModal();
+  renderSettings();
+}
+
+function closeImportModal() {
+  document.getElementById('import-modal').classList.add('hidden');
+  document.getElementById('import-file').value = '';
+  document.getElementById('import-options').classList.add('hidden');
+  document.getElementById('import-status').className = 'import-status';
+  document.getElementById('import-status').innerHTML = '';
+  importData = null;
 }
 
 // Limpiar al cerrar
