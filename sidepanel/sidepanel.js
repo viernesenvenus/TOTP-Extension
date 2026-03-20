@@ -259,26 +259,37 @@ async function captureScreen() {
 
   showQrPreview();
   status.className = 'qr-status loading';
-  status.textContent = 'Capturando pantalla...';
+  status.innerHTML = `
+    <div class="status-icon loading-spinner"></div>
+    <div class="status-content">
+      <strong>Capturando pantalla...</strong>
+      <small>Espera un momento</small>
+    </div>
+  `;
 
   try {
     const response = await chrome.runtime.sendMessage({ action: 'captureScreen' });
 
     if (response.error) {
-      status.className = 'qr-status error';
-      status.textContent = response.error;
+      showError(status, 'Error de captura', response.error);
       return;
     }
 
     img.src = response.dataUrl;
-    status.textContent = 'Buscando codigo QR...';
+    status.className = 'qr-status loading';
+    status.innerHTML = `
+      <div class="status-icon loading-spinner"></div>
+      <div class="status-content">
+        <strong>Buscando código QR...</strong>
+        <small>Analizando imagen</small>
+      </div>
+    `;
 
     img.onload = () => {
       scanQrFromImage(img, response.dataUrl);
     };
   } catch (e) {
-    status.className = 'qr-status error';
-    status.textContent = 'Error al capturar pantalla';
+    showError(status, 'Error inesperado', 'No se pudo capturar la pantalla. Asegúrate de tener permisos activos.');
   }
 }
 
@@ -290,7 +301,13 @@ async function processQrImage(file) {
   const url = URL.createObjectURL(file);
   img.src = url;
   status.className = 'qr-status loading';
-  status.textContent = 'Escaneando...';
+  status.innerHTML = `
+    <div class="status-icon loading-spinner"></div>
+    <div class="status-content">
+      <strong>Escaneando código QR...</strong>
+      <small>Procesando imagen</small>
+    </div>
+  `;
 
   img.onload = () => {
     scanQrFromImage(img, url);
@@ -313,23 +330,48 @@ function scanQrFromImage(img, urlToRevoke) {
     const parsed = parseOtpAuthUri(code.data);
     if (parsed) {
       status.className = 'qr-status success';
-      status.textContent = `Cuenta detectada: ${parsed.platform}`;
+      status.innerHTML = `
+        <div class="status-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+        </div>
+        <div class="status-content">
+          <strong>¡Cuenta detectada!</strong>
+          <small>${escapeHtml(parsed.platform)} - ${escapeHtml(parsed.name)}</small>
+        </div>
+      `;
 
       setTimeout(() => {
         addAccountFromQr(parsed);
       }, 800);
     } else {
-      status.className = 'qr-status error';
-      status.textContent = 'QR no contiene datos TOTP validos';
+      showError(status, 'Código QR inválido', 'El QR no contiene datos TOTP válidos. Asegúrate de escanear un código de autenticación.');
     }
   } else {
-    status.className = 'qr-status error';
-    status.textContent = 'No se encontro codigo QR en la imagen';
+    showError(status, 'No se encontró código QR', 'No se detectó ningún código QR en la imagen. Intenta con una imagen más clara o captura la pantalla completa.');
   }
 
   if (urlToRevoke && urlToRevoke.startsWith('blob:')) {
     URL.revokeObjectURL(urlToRevoke);
   }
+}
+
+// Función helper para mostrar errores con estilo
+function showError(statusElement, title, message) {
+  statusElement.className = 'qr-status error';
+  statusElement.innerHTML = `
+    <div class="status-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 8v4m0 4h.01"/>
+      </svg>
+    </div>
+    <div class="status-content">
+      <strong>${title}</strong>
+      <small>${message}</small>
+    </div>
+  `;
 }
 
 function parseOtpAuthUri(uri) {
