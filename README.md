@@ -14,6 +14,7 @@ Extensión de navegador (Chrome/Safari) que funciona como espejo de tu autentica
 ## ✨ Características
 
 - 🚀 **Acceso Rápido**: Genera códigos TOTP instantáneamente desde tu navegador
+- 🪟 **Sidebar Integrado**: Se abre como panel lateral en Chrome/Edge para mejor UX (no como popup modal)
 - 📋 **Copiar con un Clic**: Copia códigos directamente al portapapeles
 - ✍️ **Entrada Manual**: Agrega cuentas ingresando la clave secreta manualmente
 - 📷 **Escaneo QR**: Escanea códigos QR directamente desde la extensión (próximamente)
@@ -49,9 +50,11 @@ Extensión de navegador (Chrome/Safari) que funciona como espejo de tu autentica
 
 ## 🚀 Uso
 
+> **💡 Nota**: En Chrome/Edge/Brave, la extensión se abre como **sidebar** (panel lateral) en lugar de popup modal, proporcionando una experiencia más integrada y cómoda.
+
 ### Agregar una Cuenta Manualmente
 
-1. Haz clic en el ícono de la extensión
+1. Haz clic en el ícono de la extensión (se abrirá el sidebar)
 2. Selecciona "Agregar Cuenta" o "Agregar Primera Cuenta"
 3. Elige la pestaña "✍️ Manual"
 4. Completa el formulario:
