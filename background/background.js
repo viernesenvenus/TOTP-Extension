@@ -5,7 +5,7 @@
 
 // Detect browser APIs
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-const isChrome = typeof chrome !== 'undefined' && !!chrome.runtime && !browser;
+const isChrome = typeof chrome !== 'undefined' && !!chrome.runtime && typeof browser === 'undefined';
 const hasSidePanel = isChrome && typeof chrome.sidePanel !== 'undefined';
 
 // On install
