@@ -363,67 +363,98 @@ footer {
 .settings-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px;
+  gap: 12px;
+  padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  margin-bottom: 10px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  background: var(--bg);
+  transition: all 0.2s ease;
+}
+
+.settings-item:hover {
+  border-color: var(--primary);
+  background: var(--bg-secondary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .settings-item-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
 }
 
 .settings-item-platform {
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .settings-item-account {
   font-size: 12px;
   color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .settings-item-actions {
   display: flex;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .edit-btn {
   background: none;
   border: 1px solid var(--primary);
   color: var(--primary);
-  padding: 6px 14px;
-  border-radius: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .edit-btn:hover {
   background: var(--primary);
   color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.edit-btn:active {
+  transform: translateY(0);
 }
 
 .delete-btn {
   background: none;
   border: 1px solid var(--danger);
   color: var(--danger);
-  padding: 6px 14px;
-  border-radius: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .delete-btn:hover {
   background: var(--danger);
   color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.delete-btn:active {
+  transform: translateY(0);
 }
 
 .settings-empty {
