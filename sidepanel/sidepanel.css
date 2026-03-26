@@ -405,17 +405,19 @@ footer {
 
 .settings-item-actions {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   flex-shrink: 0;
+  min-width: 80px;
 }
 
 .edit-btn {
   background: none;
   border: 1px solid var(--primary);
   color: var(--primary);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -425,21 +427,21 @@ footer {
 .edit-btn:hover {
   background: var(--primary);
   color: white;
-  transform: translateY(-1px);
+  transform: translateX(-2px);
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
 .edit-btn:active {
-  transform: translateY(0);
+  transform: translateX(0);
 }
 
 .delete-btn {
   background: none;
   border: 1px solid var(--danger);
   color: var(--danger);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -449,12 +451,12 @@ footer {
 .delete-btn:hover {
   background: var(--danger);
   color: white;
-  transform: translateY(-1px);
+  transform: translateX(-2px);
   box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
 }
 
 .delete-btn:active {
-  transform: translateY(0);
+  transform: translateX(0);
 }
 
 .settings-empty {
