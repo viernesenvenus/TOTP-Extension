@@ -857,6 +857,49 @@ form {
   transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
+/* Drag and Drop */
+.settings-item {
+  cursor: grab;
+  transition: all 0.2s ease;
+}
+
+.settings-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+  transform: scale(0.98);
+}
+
+.settings-item.drag-over {
+  border-color: var(--primary);
+  border-width: 2px;
+  transform: translateY(-2px);
+}
+
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
+  color: var(--text-muted);
+  cursor: grab;
+  transition: color 0.15s;
+}
+
+.drag-handle:hover {
+  color: var(--text);
+}
+
+.drag-handle svg {
+  width: 16px;
+  height: 16px;
+}
+
+.settings-item:active .drag-handle {
+  cursor: grabbing;
+}
+
 /* Utility */
 .hidden {
   display: none !important;

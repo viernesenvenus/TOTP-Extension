@@ -539,7 +539,13 @@ function renderSettings() {
   }
 
   list.innerHTML = state.accounts.map((acc, i) => `
-    <div class="settings-item">
+    <div class="settings-item" draggable="true" data-index="${i}">
+      <div class="drag-handle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="4" y1="8" x2="20" y2="8"/>
+          <line x1="4" y1="16" x2="20" y2="16"/>
+        </svg>
+      </div>
       <div class="settings-item-info">
         <span class="settings-item-platform">${escapeHtml(acc.platform)}</span>
         <span class="settings-item-account">${escapeHtml(acc.name)}</span>
@@ -550,7 +556,8 @@ function renderSettings() {
 
   // Listeners eliminar
   list.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
       const index = parseInt(btn.dataset.index);
       const acc = state.accounts[index];
       if (confirm(`Eliminar ${acc.platform}?`)) {
@@ -560,6 +567,82 @@ function renderSettings() {
       }
     });
   });
+
+  // Setup drag and drop
+  setupDragAndDrop();
+}
+
+// Drag and Drop
+let draggedIndex = null;
+
+function setupDragAndDrop() {
+  const items = document.querySelectorAll('.settings-item');
+
+  items.forEach(item => {
+    item.addEventListener('dragstart', handleDragStart);
+    item.addEventListener('dragend', handleDragEnd);
+    item.addEventListener('dragover', handleDragOver);
+    item.addEventListener('drop', handleDrop);
+    item.addEventListener('dragleave', handleDragLeave);
+  });
+}
+
+function handleDragStart(e) {
+  draggedIndex = parseInt(this.dataset.index);
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/html', this.innerHTML);
+}
+
+function handleDragEnd(e) {
+  this.classList.remove('dragging');
+
+  // Limpiar todas las clases drag-over
+  document.querySelectorAll('.settings-item').forEach(item => {
+    item.classList.remove('drag-over');
+  });
+}
+
+function handleDragOver(e) {
+  if (e.preventDefault) {
+    e.preventDefault();
+  }
+
+  e.dataTransfer.dropEffect = 'move';
+
+  const targetIndex = parseInt(this.dataset.index);
+  if (draggedIndex !== targetIndex) {
+    this.classList.add('drag-over');
+  }
+
+  return false;
+}
+
+function handleDragLeave(e) {
+  this.classList.remove('drag-over');
+}
+
+async function handleDrop(e) {
+  if (e.stopPropagation) {
+    e.stopPropagation();
+  }
+
+  const targetIndex = parseInt(this.dataset.index);
+
+  if (draggedIndex !== null && draggedIndex !== targetIndex) {
+    // Reordenar el array
+    const draggedItem = state.accounts[draggedIndex];
+    state.accounts.splice(draggedIndex, 1);
+    state.accounts.splice(targetIndex, 0, draggedItem);
+
+    // Guardar cambios
+    await saveAccounts();
+
+    // Re-renderizar
+    renderSettings();
+  }
+
+  return false;
 }
 
 // Auto-update (solo actualiza timers y codigos, no recrea tarjetas)
