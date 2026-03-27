@@ -62,15 +62,26 @@ Crea un archivo HTML simple:
 
 ### 3. Interpretar los logs
 
-#### ✓ Auto-fill funcionando correctamente:
+#### ✓ Auto-fill funcionando correctamente (campo único):
 ```
 [TOTP] Intentando auto-fill...
 [TOTP] Enviando código a tab 123: https://...
 [TOTP Autofill] Mensaje recibido para auto-completar
 [TOTP Autofill] Buscando campo MFA...
 [TOTP Autofill] ✓ Campo encontrado por [ID/NAME/PLACEHOLDER]
-[TOTP Autofill] ✓ Campo rellenado exitosamente
+[TOTP Autofill] Rellenando campo único con código: 949481
+[TOTP Autofill] ✓ Campo único rellenado exitosamente
 [TOTP] ✓ Auto-fill exitoso
+```
+**Feedback visual:** "✓ Auto-completado"
+
+#### ✓ Auto-fill funcionando (campos separados):
+```
+[TOTP Autofill] ✓ Campo encontrado por AUTOCOMPLETE: "one-time-code"
+[TOTP Autofill] Detectado campo de dígito único, buscando campos hermanos...
+[TOTP Autofill] ✓ Encontrados 6 campos de dígito único
+[TOTP Autofill] Rellenando 6 campos individuales con código: 949481
+[TOTP Autofill] ✓ Campos individuales rellenados exitosamente
 ```
 **Feedback visual:** "✓ Auto-completado"
 
@@ -92,14 +103,33 @@ Crea un archivo HTML simple:
 
 ### 4. Campos MFA detectables
 
-El auto-fill detecta campos con:
+El auto-fill detecta y rellena dos tipos de campos:
 
+#### Tipo A: Campo único (6-8 dígitos)
+Un solo input que acepta todo el código:
+```html
+<input type="text" id="otp" maxlength="6">
+```
+
+#### Tipo B: Campos separados (6 inputs de 1 dígito)
+Múltiples inputs donde cada uno acepta 1 dígito:
+```html
+<input type="text" maxlength="1"> <!-- 9 -->
+<input type="text" maxlength="1"> <!-- 4 -->
+<input type="text" maxlength="1"> <!-- 9 -->
+<input type="text" maxlength="1"> <!-- 4 -->
+<input type="text" maxlength="1"> <!-- 8 -->
+<input type="text" maxlength="1"> <!-- 1 -->
+```
+**El script detecta automáticamente este patrón y distribuye cada dígito.**
+
+Atributos detectables:
 - **IDs:** `code`, `otp`, `mfa`, `2fa`, `totp`, `token`, `verification`, etc.
 - **Names:** Similar a IDs
 - **Placeholders:** "enter code", "verification code", "6-digit", etc.
 - **Aria-labels:** "verification code", "authentication code", etc.
 - **Autocomplete:** `one-time-code`, `otp`
-- **MaxLength:** 6-8 caracteres (si no parece campo de contraseña)
+- **MaxLength:** 6-8 caracteres (campo único) o 1 (campos separados)
 
 ### 5. Troubleshooting
 
