@@ -89,7 +89,7 @@ function render() {
           </div>
           <div class="code">${formatCode(code)}</div>
         </div>
-        <div class="copied-feedback">Copiado!</div>
+        <div class="copied-feedback">Copiado</div>
       </div>
     `;
   }).join('');
@@ -221,7 +221,7 @@ function updateFeedback(card, type) {
   if (!feedback) return;
 
   if (type === 'auto-filled') {
-    feedback.textContent = '✓ Auto-completado';
+    feedback.textContent = 'Auto-completado';
     feedback.style.background = 'rgba(34, 197, 94, 0.98)';
   }
 }
