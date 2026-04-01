@@ -5,7 +5,8 @@
 const state = {
   accounts: [],
   updateInterval: null,
-  editingIndex: null
+  editingIndex: null,
+  deletingIndex: null
 };
 
 // Inicializar
@@ -21,6 +22,12 @@ async function init() {
   setTimeout(() => {
     document.getElementById('loading').classList.add('hidden');
     document.querySelector('.container').classList.add('loaded');
+
+    // SOLUCIÓN 4: Asegurar que el scroll inicie en top
+    const main = document.querySelector('main');
+    const empty = document.getElementById('empty-state');
+    if (main) main.scrollTop = 0;
+    if (empty) empty.scrollTop = 0;
   }, 300);
 }
 
@@ -46,12 +53,20 @@ function render() {
   const list = document.getElementById('accounts-list');
   const empty = document.getElementById('empty-state');
   const footer = document.getElementById('footer');
+  const main = document.querySelector('main');
 
   // Estado vacio
   if (state.accounts.length === 0) {
     list.innerHTML = '';
     empty.classList.remove('hidden');
     footer.classList.add('hidden');
+
+    // SOLUCIÓN 4: Resetear scroll a la parte superior
+    setTimeout(() => {
+      if (main) main.scrollTop = 0;
+      if (empty) empty.scrollTop = 0;
+    }, 0);
+
     return;
   }
 
@@ -134,6 +149,30 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Obtener color de avatar basado en la letra
+function getAvatarColor(letter) {
+  const upperLetter = letter.toUpperCase();
+
+  // Color especial para T - morado suave
+  if (upperLetter === 'T') {
+    return { bg: '#EDE9FE', text: '#7C3AED' };
+  }
+
+  const colors = [
+    { bg: '#E0E7FF', text: '#5B47ED' }, // Morado
+    { bg: '#DBEAFE', text: '#1E40AF' }, // Azul
+    { bg: '#D1FAE5', text: '#047857' }, // Verde
+    { bg: '#FEF3C7', text: '#B45309' }, // Amarillo
+    { bg: '#FCE7F3', text: '#BE185D' }, // Rosa
+    { bg: '#E0F2FE', text: '#0369A1' }, // Cyan
+    { bg: '#F3E8FF', text: '#7C3AED' }, // Violeta
+    { bg: '#FED7AA', text: '#C2410C' }, // Naranja
+  ];
+
+  const index = upperLetter.charCodeAt(0) % colors.length;
+  return colors[index];
+}
+
 // Listeners de tarjetas
 function setupCardListeners() {
   document.querySelectorAll('.account-card').forEach(card => {
@@ -153,14 +192,10 @@ async function copyCode(index, card) {
   try {
     await navigator.clipboard.writeText(code);
 
-    // Feedback visual inicial
+    // Feedback visual
     card.classList.add('copied');
 
-    // Intentar auto-fill
-    const autofilled = await attemptAutofill(code, card);
-
     // Auto-cerrar con transicion suave
-    const delay = autofilled ? 1600 : 1400;
     setTimeout(() => {
       const container = document.querySelector('.container');
       container.classList.add('closing');
@@ -169,50 +204,9 @@ async function copyCode(index, card) {
       setTimeout(() => {
         window.close();
       }, 400);
-    }, delay);
+    }, 1400);
   } catch (e) {
     console.error('Error copiando:', e);
-  }
-}
-
-// Intentar auto-fill en la página activa
-async function attemptAutofill(code, card) {
-  try {
-    // Obtener la tab activa
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-    if (!tab || !tab.id) {
-      return false;
-    }
-
-    // Enviar mensaje al content script
-    const response = await chrome.tabs.sendMessage(tab.id, {
-      action: 'autofillMfa',
-      code: code
-    });
-
-    if (response && response.success) {
-      // Actualizar feedback visual a "auto-completado"
-      updateFeedback(card, 'auto-filled');
-      return true;
-    } else {
-      // Mantener feedback de "copiado"
-      return false;
-    }
-  } catch (e) {
-    // Si hay error (ej: content script no cargado), solo mantener "copiado"
-    return false;
-  }
-}
-
-// Actualizar feedback visual
-function updateFeedback(card, type) {
-  const feedback = card.querySelector('.copied-feedback');
-  if (!feedback) return;
-
-  if (type === 'auto-filled') {
-    feedback.textContent = 'Auto-completado';
-    feedback.style.background = 'rgba(34, 197, 94, 0.98)';
   }
 }
 
@@ -258,6 +252,14 @@ function setupListeners() {
     if (e.target.id === 'edit-modal') closeEditModal();
   });
 
+  // Delete modal
+  document.getElementById('close-delete-modal').addEventListener('click', closeDeleteModal);
+  document.getElementById('cancel-delete-btn').addEventListener('click', closeDeleteModal);
+  document.getElementById('confirm-delete-btn').addEventListener('click', handleDeleteConfirm);
+  document.getElementById('delete-modal').addEventListener('click', e => {
+    if (e.target.id === 'delete-modal') closeDeleteModal();
+  });
+
   // Export/Import
   document.getElementById('export-btn').addEventListener('click', exportAccounts);
   document.getElementById('import-btn').addEventListener('click', () =>
@@ -284,7 +286,10 @@ function setupListeners() {
 }
 
 // Modal
-function openModal() {
+async function openModal() {
+  // Recargar cuentas desde storage antes de abrir el modal
+  await loadAccounts();
+
   document.getElementById('add-modal').classList.remove('hidden');
   // Reset al tab QR por defecto
   switchTab('qr');
@@ -295,6 +300,7 @@ function closeModal() {
   document.getElementById('add-modal').classList.add('hidden');
   document.getElementById('add-form').reset();
   resetQrUpload();
+  hideManualFormError();
 }
 
 // Tabs
@@ -305,6 +311,9 @@ function switchTab(tabName) {
   document.querySelectorAll('.tab-content').forEach(c => {
     c.classList.toggle('active', c.id === `tab-${tabName}`);
   });
+
+  // Ocultar mensaje de error al cambiar de tab
+  hideManualFormError();
 }
 
 // QR Upload
@@ -356,6 +365,9 @@ async function captureScreen() {
     clearTimeout(timeoutId);
 
     if (response.error) {
+      showQrPreview();
+      const preview = document.getElementById('qr-preview');
+      preview.classList.add('has-error');
       showError(status, 'Error de captura', response.error);
       captureBtn.disabled = false;
       uploadBtn.disabled = false;
@@ -372,19 +384,24 @@ async function captureScreen() {
       </div>
     `;
 
-    img.onload = () => {
-      scanQrFromImage(img, response.dataUrl);
+    img.onload = async () => {
+      await scanQrFromImage(img, response.dataUrl);
       captureBtn.disabled = false;
       uploadBtn.disabled = false;
     };
 
     img.onerror = () => {
+      const preview = document.getElementById('qr-preview');
+      preview.classList.add('has-error');
       showError(status, 'Error al cargar', 'No se pudo procesar la imagen capturada');
       captureBtn.disabled = false;
       uploadBtn.disabled = false;
     };
   } catch (e) {
     clearTimeout(timeoutId);
+    showQrPreview();
+    const preview = document.getElementById('qr-preview');
+    preview.classList.add('has-error');
     showError(status, 'Error inesperado', 'No se pudo capturar la pantalla. Asegúrate de tener permisos activos.');
     captureBtn.disabled = false;
     uploadBtn.disabled = false;
@@ -407,12 +424,12 @@ async function processQrImage(file) {
     </div>
   `;
 
-  img.onload = () => {
-    scanQrFromImage(img, url);
+  img.onload = async () => {
+    await scanQrFromImage(img, url);
   };
 }
 
-function scanQrFromImage(img, urlToRevoke) {
+async function scanQrFromImage(img, urlToRevoke) {
   const status = document.getElementById('qr-status');
   const preview = document.getElementById('qr-preview');
   const canvas = document.getElementById('qr-canvas');
@@ -429,22 +446,51 @@ function scanQrFromImage(img, urlToRevoke) {
     const parsed = parseOtpAuthUri(code.data);
     if (parsed) {
       preview.classList.remove('has-error');
-      status.className = 'qr-status success';
-      status.innerHTML = `
-        <div class="status-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M20 6L9 17l-5-5"/>
-          </svg>
-        </div>
-        <div class="status-content">
-          <strong>¡Cuenta detectada!</strong>
-          <small>${escapeHtml(parsed.platform)} - ${escapeHtml(parsed.name)}</small>
-        </div>
-      `;
 
-      setTimeout(() => {
-        addAccountFromQr(parsed);
-      }, 800);
+      // Recargar cuentas desde storage para asegurar estado actualizado
+      await loadAccounts();
+
+      // Verificar si es duplicado
+      const isDuplicate = state.accounts.some(a =>
+        a.platform.toLowerCase() === parsed.platform.toLowerCase() &&
+        a.name.toLowerCase() === parsed.name.toLowerCase()
+      );
+
+      if (isDuplicate) {
+        // Mostrar advertencia de duplicado
+        status.className = 'qr-status warning';
+        status.innerHTML = `
+          <div class="status-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div class="status-content">
+            <strong>Cuenta duplicada</strong>
+            <small>Esta cuenta ya existe en tu lista</small>
+          </div>
+        `;
+      } else {
+        // Mostrar éxito para cuenta nueva
+        status.className = 'qr-status success';
+        status.innerHTML = `
+          <div class="status-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+          </div>
+          <div class="status-content">
+            <strong>¡Cuenta detectada!</strong>
+            <small>${escapeHtml(parsed.platform)} - ${escapeHtml(parsed.name)}</small>
+          </div>
+        `;
+
+        setTimeout(() => {
+          addAccountFromQr(parsed);
+        }, 800);
+      }
     } else {
       preview.classList.add('has-error');
       showError(status, 'Código QR inválido', 'El QR no contiene datos TOTP válidos. Asegúrate de escanear un código de autenticación.');
@@ -474,6 +520,31 @@ function showError(statusElement, title, message) {
       <small>${message}</small>
     </div>
   `;
+}
+
+// Mostrar error en formulario manual
+function showManualFormError(title, message) {
+  const statusElement = document.getElementById('manual-form-status');
+  statusElement.className = 'qr-status error';
+  statusElement.classList.remove('hidden');
+  statusElement.innerHTML = `
+    <div class="status-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 8v4m0 4h.01"/>
+      </svg>
+    </div>
+    <div class="status-content">
+      <strong>${title}</strong>
+      <small>${message}</small>
+    </div>
+  `;
+}
+
+// Ocultar error en formulario manual
+function hideManualFormError() {
+  const statusElement = document.getElementById('manual-form-status');
+  statusElement.classList.add('hidden');
 }
 
 function parseOtpAuthUri(uri) {
@@ -510,16 +581,7 @@ function parseOtpAuthUri(uri) {
 }
 
 async function addAccountFromQr(data) {
-  // Verificar duplicado
-  if (state.accounts.some(a =>
-    a.platform.toLowerCase() === data.platform.toLowerCase() &&
-    a.name.toLowerCase() === data.name.toLowerCase()
-  )) {
-    alert('Esta cuenta ya existe');
-    resetQrUpload();
-    return;
-  }
-
+  // Verificación de duplicado ya se hace en scanQrFromImage
   state.accounts.push({
     ...data,
     createdAt: new Date().toISOString()
@@ -534,18 +596,19 @@ async function addAccountFromQr(data) {
 async function handleSubmit(e) {
   e.preventDefault();
 
+  const statusElement = document.getElementById('manual-form-status');
   const platform = document.getElementById('platform').value.trim();
   const name = document.getElementById('account').value.trim();
   const secret = document.getElementById('secret').value.trim().toUpperCase().replace(/\s/g, '');
 
   if (!platform || !name || !secret) {
-    alert('Todos los campos son obligatorios');
+    showManualFormError('Campos obligatorios', 'Por favor completa todos los campos para continuar');
     return;
   }
 
   // Validar Base32
   if (!/^[A-Z2-7]+=*$/.test(secret) || secret.length < 16) {
-    alert('La clave secreta no es valida');
+    showManualFormError('Clave secreta inválida', 'La clave debe ser Base32 con al menos 16 caracteres');
     return;
   }
 
@@ -554,9 +617,12 @@ async function handleSubmit(e) {
     a.platform.toLowerCase() === platform.toLowerCase() &&
     a.name.toLowerCase() === name.toLowerCase()
   )) {
-    alert('Esta cuenta ya existe');
+    showManualFormError('Cuenta duplicada', 'Esta cuenta ya existe en tu lista');
     return;
   }
+
+  // Ocultar mensaje de error si todo está bien
+  hideManualFormError();
 
   state.accounts.push({
     platform,
@@ -582,7 +648,10 @@ function openSettings() {
   renderSettings();
 }
 
-function closeSettings() {
+async function closeSettings() {
+  // Recargar cuentas desde storage para asegurar sincronización
+  await loadAccounts();
+
   document.getElementById('settings-view').classList.add('hidden');
   document.querySelector('header').classList.remove('hidden');
   document.getElementById('main-view').classList.remove('hidden');
@@ -597,46 +666,65 @@ function renderSettings() {
     return;
   }
 
-  list.innerHTML = state.accounts.map((acc, i) => `
-    <div class="settings-item" draggable="true" data-index="${i}">
+  list.innerHTML = state.accounts.map((acc, i) => {
+    const initial = acc.platform.charAt(0).toUpperCase();
+    const avatarColor = getAvatarColor(initial);
+    return `
+    <div class="settings-item" data-index="${i}" draggable="true">
       <div class="drag-handle">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="4" y1="8" x2="20" y2="8"/>
-          <line x1="4" y1="16" x2="20" y2="16"/>
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="10" cy="8" r="1.5"/>
+          <circle cx="10" cy="12" r="1.5"/>
+          <circle cx="10" cy="16" r="1.5"/>
+          <circle cx="14" cy="8" r="1.5"/>
+          <circle cx="14" cy="12" r="1.5"/>
+          <circle cx="14" cy="16" r="1.5"/>
         </svg>
       </div>
+      <div class="settings-avatar" style="background: ${avatarColor.bg}; color: ${avatarColor.text}">${initial}</div>
       <div class="settings-item-info">
         <span class="settings-item-platform">${escapeHtml(acc.platform)}</span>
         <span class="settings-item-account">${escapeHtml(acc.name)}</span>
       </div>
       <div class="settings-item-actions">
-        <button class="edit-btn" data-index="${i}">Editar</button>
-        <button class="delete-btn" data-index="${i}">Eliminar</button>
+        <button class="edit-btn" data-index="${i}" title="Editar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
+        <button class="delete-btn" data-index="${i}" title="Eliminar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            <line x1="10" y1="11" x2="10" y2="17"/>
+            <line x1="14" y1="11" x2="14" y2="17"/>
+          </svg>
+        </button>
       </div>
     </div>
-  `).join('');
+  `}).join('');
 
   // Listeners editar
   list.querySelectorAll('.edit-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
+      e.preventDefault();
       const index = parseInt(btn.dataset.index);
       openEditModal(index);
     });
+    btn.addEventListener('mousedown', (e) => e.stopPropagation());
   });
 
   // Listeners eliminar
   list.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
+      e.preventDefault();
       const index = parseInt(btn.dataset.index);
-      const acc = state.accounts[index];
-      if (confirm(`Eliminar ${acc.platform}?`)) {
-        state.accounts.splice(index, 1);
-        await saveAccounts();
-        renderSettings();
-      }
+      openDeleteModal(index);
     });
+    btn.addEventListener('mousedown', (e) => e.stopPropagation());
   });
 
   // Setup drag and drop
@@ -696,7 +784,42 @@ async function handleEditSubmit(e) {
   renderSettings();
 }
 
-// Drag and Drop
+// Delete modal
+function openDeleteModal(index) {
+  state.deletingIndex = index;
+  const account = state.accounts[index];
+
+  // Mostrar nombre de la cuenta en el mensaje
+  document.getElementById('delete-account-name').textContent = account.platform;
+
+  // Abrir modal
+  document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+  document.getElementById('delete-modal').classList.add('hidden');
+  state.deletingIndex = null;
+}
+
+async function handleDeleteConfirm() {
+  if (state.deletingIndex === null) return;
+
+  state.accounts.splice(state.deletingIndex, 1);
+  await saveAccounts();
+
+  // Recargar desde storage para asegurar sincronización
+  await loadAccounts();
+
+  closeDeleteModal();
+  renderSettings();
+
+  // Si la vista principal está visible, actualizarla también
+  if (!document.getElementById('main-view').classList.contains('hidden')) {
+    render();
+  }
+}
+
+// Drag and Drop para reordenar
 let draggedIndex = null;
 
 function setupDragAndDrop() {
@@ -715,13 +838,12 @@ function handleDragStart(e) {
   draggedIndex = parseInt(this.dataset.index);
   this.classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/html', this.innerHTML);
 }
 
 function handleDragEnd(e) {
   this.classList.remove('dragging');
 
-  // Limpiar todas las clases drag-over
+  // Limpiar todas las clases de drag-over
   document.querySelectorAll('.settings-item').forEach(item => {
     item.classList.remove('drag-over');
   });
