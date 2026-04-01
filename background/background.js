@@ -19,14 +19,24 @@ browserAPI.runtime.onInstalled.addListener((details) => {
   }
 });
 
-// Handle action click - Chrome with SidePanel vs Safari/Firefox with popup
+// Handle action click - Open side panel automatically
 if (hasSidePanel) {
-  // Chrome: Configure side panel to open on action click
+  // Chrome: Open side panel on click
+  chrome.action.onClicked.addListener((tab) => {
+    chrome.sidePanel.open({ windowId: tab.windowId }).catch((error) => {
+      console.error('Error opening side panel:', error);
+      // Fallback: could open popup.html in new tab if needed
+    });
+  });
+
+  // Configure side panel to open on action click
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((error) => {
     console.error('Error setting side panel behavior:', error);
   });
+} else {
+  // Fallback for browsers without side panel support
+  console.warn('Side Panel API not available - consider adding default_popup to manifest');
 }
-// Note: For Safari/Firefox, the popup is configured in manifest.json
 
 // Handle messages from popup/sidepanel
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
