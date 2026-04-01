@@ -667,8 +667,6 @@ function renderSettings() {
   }
 
   list.innerHTML = state.accounts.map((acc, i) => {
-    const initial = acc.platform.charAt(0).toUpperCase();
-    const avatarColor = getAvatarColor(initial);
     return `
     <div class="settings-item" data-index="${i}" draggable="true">
       <div class="drag-handle">
@@ -681,7 +679,6 @@ function renderSettings() {
           <circle cx="14" cy="16" r="1.5"/>
         </svg>
       </div>
-      <div class="settings-avatar" style="background: ${avatarColor.bg}; color: ${avatarColor.text}">${initial}</div>
       <div class="settings-item-info">
         <span class="settings-item-platform">${escapeHtml(acc.platform)}</span>
         <span class="settings-item-account">${escapeHtml(acc.name)}</span>
