@@ -623,7 +623,13 @@ footer {
   border-top: 1px solid var(--border);
   background: var(--bg);
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+}
+
+.settings-footer .security-badge {
+  width: 100%;
+  margin-top: 4px;
 }
 
 .settings-footer .btn-secondary {
