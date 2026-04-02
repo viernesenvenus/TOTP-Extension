@@ -5,6 +5,7 @@
 const state = {
   accounts: [],
   updateInterval: null,
+  timerInterval: null,
   editingIndex: null,
   deletingIndex: null,
   visibleCodes: new Set()
@@ -1002,14 +1003,23 @@ async function handleDrop(e) {
 // Auto-update (solo actualiza timers y codigos, no recrea tarjetas)
 function startAutoUpdate() {
   if (state.updateInterval) clearInterval(state.updateInterval);
+  if (state.timerInterval) clearInterval(state.timerInterval);
+
+  // Actualizar códigos cada segundo
   state.updateInterval = setInterval(updateTimers, 1000);
+
+  // Actualizar barra de progreso más frecuentemente para fluidez
+  state.timerInterval = setInterval(updateGlobalTimer, 50);
 }
 
-// Actualizar solo timers y codigos sin recrear tarjetas
-// Actualizar barra de progreso global
+// Actualizar barra de progreso global (fluida con milisegundos)
 function updateGlobalTimer() {
-  const timeLeft = getTimeRemaining(30);
-  const progress = (timeLeft / 30) * 100;
+  const now = Date.now();
+  const period = 30000; // 30 segundos en ms
+  const elapsed = now % period;
+  const remaining = period - elapsed;
+  const progress = (remaining / period) * 100;
+
   const timerBar = document.querySelector('.global-timer-bar');
   const timerContainer = document.getElementById('global-timer');
 
@@ -1017,9 +1027,10 @@ function updateGlobalTimer() {
     timerBar.style.width = `${progress}%`;
 
     // Cambiar color según tiempo restante
+    const secondsLeft = remaining / 1000;
     timerContainer.classList.remove('warning', 'danger');
-    if (timeLeft <= 5) timerContainer.classList.add('danger');
-    else if (timeLeft <= 10) timerContainer.classList.add('warning');
+    if (secondsLeft <= 5) timerContainer.classList.add('danger');
+    else if (secondsLeft <= 10) timerContainer.classList.add('warning');
   }
 }
 
@@ -1353,4 +1364,5 @@ function closeImportModal() {
 // Limpiar al cerrar
 window.addEventListener('beforeunload', () => {
   if (state.updateInterval) clearInterval(state.updateInterval);
+  if (state.timerInterval) clearInterval(state.timerInterval);
 });
