@@ -115,6 +115,29 @@ header h1 {
   height: 18px;
 }
 
+/* Global Timer Bar */
+.global-timer {
+  height: 3px;
+  background: var(--border);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.global-timer-bar {
+  height: 100%;
+  background: var(--primary);
+  transition: width 1s linear;
+  border-radius: 0 2px 2px 0;
+}
+
+.global-timer.warning .global-timer-bar {
+  background: #F59E0B;
+}
+
+.global-timer.danger .global-timer-bar {
+  background: #EF4444;
+}
+
 /* Main */
 main {
   flex: 1;
@@ -237,52 +260,6 @@ main {
   gap: 12px;
   position: relative;
   z-index: 1;
-}
-
-/* Timer */
-.timer {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-}
-
-.timer svg {
-  width: 44px;
-  height: 44px;
-  transform: rotate(-90deg);
-}
-
-.timer-bg {
-  fill: none;
-  stroke: var(--border);
-  stroke-width: 3;
-}
-
-.timer-progress {
-  fill: none;
-  stroke: var(--primary);
-  stroke-width: 3;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 1s linear;
-}
-
-.timer-progress.warning {
-  stroke: var(--warning);
-}
-
-.timer-progress.danger {
-  stroke: var(--danger);
-}
-
-.timer-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
 }
 
 /* Code */

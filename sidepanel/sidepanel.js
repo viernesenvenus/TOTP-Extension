@@ -77,16 +77,7 @@ function render() {
   // Renderizar tarjetas
   list.innerHTML = state.accounts.map((acc, i) => {
     const code = generateTOTP(acc);
-    const period = acc.period || 30;
-    const timeLeft = getTimeRemaining(period);
-    const progress = (timeLeft / period) * 100;
-    const circumference = 2 * Math.PI * 18;
-    const offset = circumference - (progress / 100) * circumference;
     const isVisible = state.visibleCodes.has(i);
-
-    let timerClass = '';
-    if (timeLeft <= 5) timerClass = 'danger';
-    else if (timeLeft <= 10) timerClass = 'warning';
 
     return `
       <div class="account-card" data-index="${i}">
@@ -95,15 +86,6 @@ function render() {
           <div class="account-name">${escapeHtml(acc.name)}</div>
         </div>
         <div class="code-row">
-          <div class="timer">
-            <svg viewBox="0 0 44 44">
-              <circle class="timer-bg" cx="22" cy="22" r="18"/>
-              <circle class="timer-progress ${timerClass}" cx="22" cy="22" r="18"
-                stroke-dasharray="${circumference}"
-                stroke-dashoffset="${offset}"/>
-            </svg>
-            <span class="timer-text">${timeLeft}</span>
-          </div>
           <div class="code" data-code="${code}">${isVisible ? formatCode(code) : '••• •••'}</div>
           <button class="toggle-visibility" data-index="${i}" title="${isVisible ? 'Ocultar' : 'Mostrar'}">
             ${isVisible ? `
@@ -128,6 +110,9 @@ function render() {
       </div>
     `;
   }).join('');
+
+  // Actualizar barra de progreso global
+  updateGlobalTimer();
 
   setupCardListeners();
 }
@@ -1021,29 +1006,34 @@ function startAutoUpdate() {
 }
 
 // Actualizar solo timers y codigos sin recrear tarjetas
+// Actualizar barra de progreso global
+function updateGlobalTimer() {
+  const timeLeft = getTimeRemaining(30);
+  const progress = (timeLeft / 30) * 100;
+  const timerBar = document.querySelector('.global-timer-bar');
+  const timerContainer = document.getElementById('global-timer');
+
+  if (timerBar) {
+    timerBar.style.width = `${progress}%`;
+
+    // Cambiar color según tiempo restante
+    timerContainer.classList.remove('warning', 'danger');
+    if (timeLeft <= 5) timerContainer.classList.add('danger');
+    else if (timeLeft <= 10) timerContainer.classList.add('warning');
+  }
+}
+
 function updateTimers() {
+  // Actualizar barra global
+  updateGlobalTimer();
+
+  // Actualizar códigos de las tarjetas
   document.querySelectorAll('.account-card').forEach(card => {
     const index = parseInt(card.dataset.index);
     const account = state.accounts[index];
     if (!account) return;
 
     const code = generateTOTP(account);
-    const period = account.period || 30;
-    const timeLeft = getTimeRemaining(period);
-    const progress = (timeLeft / period) * 100;
-    const circumference = 2 * Math.PI * 18;
-    const offset = circumference - (progress / 100) * circumference;
-
-    // Actualizar timer
-    const timerProgress = card.querySelector('.timer-progress');
-    const timerText = card.querySelector('.timer-text');
-    if (timerProgress && timerText) {
-      timerProgress.setAttribute('stroke-dashoffset', offset);
-      timerProgress.classList.remove('warning', 'danger');
-      if (timeLeft <= 5) timerProgress.classList.add('danger');
-      else if (timeLeft <= 10) timerProgress.classList.add('warning');
-      timerText.textContent = timeLeft;
-    }
 
     // Actualizar codigo (respetando visibilidad)
     const codeEl = card.querySelector('.code');
