@@ -48,6 +48,7 @@ export function Hero({ stars }: HeroProps) {
                 <p className="text-left">Exporta e importa entre navegadores. <span className="text-white">Tus datos nunca salen de tu maquina.</span></p>
               </div>
             </div>
+            <p className="mt-4 text-xs text-gray-600">Disponible para Windows y macOS</p>
           </div>
 
           {/* CTA Buttons */}
