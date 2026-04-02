@@ -15,13 +15,21 @@ export function Demo() {
     "credentials"
   );
   const [error, setError] = useState("");
-  const [totpCode, setTotpCode] = useState(generateFakeCode());
+  const [totpCode, setTotpCode] = useState("000000");
   const [timeLeft, setTimeLeft] = useState(30);
   const [copied, setCopied] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const codeInputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize random code on client only
+  useEffect(() => {
+    setTotpCode(generateFakeCode());
+    setMounted(true);
+  }, []);
 
   // Update TOTP code every 30 seconds
   useEffect(() => {
+    if (!mounted) return;
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -32,7 +40,7 @@ export function Demo() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [mounted]);
 
   const handleCredentialsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
