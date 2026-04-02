@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Hero } from "@/components/Hero";
-import { Problem } from "@/components/Problem";
 import { Demo } from "@/components/Demo";
 import { Footer } from "@/components/Footer";
 
@@ -23,7 +22,6 @@ export default function Home() {
   return (
     <main className="min-h-screen">
       <Hero stars={stars} />
-      <Problem />
       <Demo />
       <Footer />
     </main>
