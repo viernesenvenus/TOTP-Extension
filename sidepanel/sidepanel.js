@@ -15,6 +15,7 @@ const state = {
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
+  await loadTheme();
   await loadAccounts();
   render();
   setupListeners();
@@ -25,12 +26,48 @@ async function init() {
     document.getElementById('loading').classList.add('hidden');
     document.querySelector('.container').classList.add('loaded');
 
-    // SOLUCIÓN 4: Asegurar que el scroll inicie en top
+    // Asegurar que el scroll inicie en top
     const main = document.querySelector('main');
     const empty = document.getElementById('empty-state');
     if (main) main.scrollTop = 0;
     if (empty) empty.scrollTop = 0;
   }, 300);
+}
+
+// Tema
+async function loadTheme() {
+  return new Promise(resolve => {
+    chrome.storage.local.get(['theme'], result => {
+      const theme = result.theme || 'auto';
+      applyTheme(theme);
+      resolve();
+    });
+  });
+}
+
+function applyTheme(theme) {
+  // Remover tema anterior
+  document.documentElement.removeAttribute('data-theme');
+
+  if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else if (theme === 'auto') {
+    // Detectar preferencia del sistema
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  }
+  // 'light' no necesita atributo, usa los estilos por defecto
+
+  // Actualizar botones activos
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === theme);
+  });
+}
+
+async function setTheme(theme) {
+  await chrome.storage.local.set({ theme });
+  applyTheme(theme);
 }
 
 // Cargar cuentas
@@ -312,6 +349,11 @@ function setupListeners() {
   // Boton agregar
   document.getElementById('add-btn')?.addEventListener('click', openModal);
   document.getElementById('add-first-btn')?.addEventListener('click', openModal);
+
+  // Theme buttons
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => setTheme(btn.dataset.theme));
+  });
 
   // Modal
   document.getElementById('close-modal').addEventListener('click', closeModal);
