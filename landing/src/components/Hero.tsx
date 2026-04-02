@@ -34,18 +34,18 @@ export function Hero({ stars }: HeroProps) {
           {/* How it works */}
           <div className="mt-10">
             <h2 className="mb-4 text-xs font-medium uppercase tracking-wider text-gray-500">Como funciona</h2>
-            <div className="space-y-2.5 text-sm text-gray-400">
+            <div className="space-y-3 text-sm text-gray-400">
               <div className="flex items-start gap-3 justify-center lg:justify-start">
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs text-white">1</span>
-                <p className="text-left">Al activar 2FA en cualquier plataforma, registra la clave en tu app movil <span className="text-white">y</span> en la extension.</p>
+                <p className="text-left">Al activar 2FA, registra la clave secreta en tu app movil <span className="text-white">y en la extension web</span>.</p>
               </div>
               <div className="flex items-start gap-3 justify-center lg:justify-start">
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs text-white">2</span>
-                <p className="text-left">Ambos generan los mismos codigos. Usa el que prefieras.</p>
+                <p className="text-left">Misma clave = mismos codigos. <span className="text-white">Celular o navegador, tu decides.</span></p>
               </div>
               <div className="flex items-start gap-3 justify-center lg:justify-start">
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs text-white">3</span>
-                <p className="text-left">Exporta e importa para usar en otros navegadores.</p>
+                <p className="text-left">Exporta e importa entre navegadores. <span className="text-white">Tus datos nunca salen de tu maquina.</span></p>
               </div>
             </div>
           </div>
